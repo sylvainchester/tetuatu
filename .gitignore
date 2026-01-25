@@ -43,3 +43,6 @@ app-example
 /android
 
 backend/.env
+
+.env
+backend/.env
