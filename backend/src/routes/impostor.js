@@ -277,11 +277,47 @@ async function getProfileUsername(userId) {
   return data.username;
 }
 
-async function ensureImpostorUser(userId) {
-  const username = await getProfileUsername(userId);
-  if (!username) {
+function normalizeUsername(value) {
+  return String(value || '').trim().slice(0, 20);
+}
+
+async function ensureProfileForUser(user) {
+  const existing = await getProfileUsername(user.id);
+  if (existing) {
+    return existing;
+  }
+
+  const baseName =
+    normalizeUsername(user.user_metadata?.username) ||
+    normalizeUsername(user.user_metadata?.full_name) ||
+    normalizeUsername(user.email?.split('@')[0]) ||
+    '';
+  let username = baseName || `joueur-${user.id.slice(0, 6)}`;
+
+  let { error } = await supabase
+    .from('profiles')
+    .upsert({ id: user.id, username })
+    .select('username')
+    .single();
+
+  if (error?.code === '23505') {
+    username = `${username}-${user.id.slice(0, 4)}`;
+    ({ error } = await supabase
+      .from('profiles')
+      .upsert({ id: user.id, username })
+      .select('username')
+      .single());
+  }
+
+  if (error) {
     throw new Error('missing_profile');
   }
+
+  return username;
+}
+
+async function ensureImpostorUser(user) {
+  const username = await ensureProfileForUser(user);
 
   const result = await pool.query(
     `INSERT INTO impostor_users (id, username)
@@ -289,7 +325,7 @@ async function ensureImpostorUser(userId) {
      ON CONFLICT (id)
      DO UPDATE SET username = EXCLUDED.username
      RETURNING id, username, score`,
-    [userId, username]
+    [user.id, username]
   );
 
   return result.rows[0];
@@ -313,7 +349,7 @@ router.use(async (req, res, next) => {
 
 router.get('/me', async (req, res) => {
   try {
-    const impostorUser = await ensureImpostorUser(req.user.id);
+    const impostorUser = await ensureImpostorUser(req.user);
     res.json(impostorUser);
   } catch (err) {
     res.status(400).json({ error: err.message });
