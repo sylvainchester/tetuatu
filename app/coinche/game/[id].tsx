@@ -161,13 +161,27 @@ function clearCardFromMain(bitstring: string, cardName: string) {
   return chars.join('');
 }
 
+function encodeCardToPli(cardName: string) {
+  const index = CARD_NAMES.indexOf(cardName);
+  if (index < 0) return '';
+  const chars = Array(CARD_NAMES.length).fill('0');
+  chars[index] = '1';
+  return chars.join('');
+}
+
 function applyOptimisticPlay(rows: any[], userId: string, cardName: string) {
   if (!userId) return rows;
+  const nextOrder = rows.reduce((max, row) => {
+    const order = Number(row?.dernier || 0);
+    return order > max ? order : max;
+  }, 0) + 1;
   return rows.map((row) => {
     if (row.player_id !== userId) return row;
     return {
       ...row,
-      main: clearCardFromMain(row.main || '', cardName)
+      main: clearCardFromMain(row.main || '', cardName),
+      pli: encodeCardToPli(cardName),
+      dernier: nextOrder
     };
   });
 }
@@ -404,7 +418,18 @@ export default function GameScreen() {
     if (!backendUrl || !gameId) return;
     const ws = new WebSocket(deriveWsUrl(backendUrl));
     ws.onopen = () => ws.send(JSON.stringify({ type: 'subscribe', gameId }));
-    ws.onmessage = () => loadGame({ silent: rows.length > 0 });
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        if (Array.isArray(payload?.data)) {
+          setRows(payload.data);
+          return;
+        }
+      } catch (_err) {
+        // Fall back to refetch when payload is not JSON.
+      }
+      loadGame({ silent: rows.length > 0 });
+    };
     return () => ws.close();
   }, [backendUrl, gameId, rows.length]);
 
