@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Image, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -149,6 +149,27 @@ function decodeHand(bitstring: string) {
     .split('')
     .map((bit, idx) => (bit === '1' ? CARD_NAMES[idx] : null))
     .filter(Boolean) as string[];
+}
+
+function clearCardFromMain(bitstring: string, cardName: string) {
+  if (!bitstring) return bitstring;
+  const index = CARD_NAMES.indexOf(cardName);
+  if (index < 0) return bitstring;
+  const chars = bitstring.split('');
+  if (!chars[index] || chars[index] === '0') return bitstring;
+  chars[index] = '0';
+  return chars.join('');
+}
+
+function applyOptimisticPlay(rows: any[], userId: string, cardName: string) {
+  if (!userId) return rows;
+  return rows.map((row) => {
+    if (row.player_id !== userId) return row;
+    return {
+      ...row,
+      main: clearCardFromMain(row.main || '', cardName)
+    };
+  });
 }
 
 function deriveWsUrl(baseUrl: string) {
@@ -303,6 +324,10 @@ export default function GameScreen() {
   const [contract, setContract] = useState('passe');
   const [suit, setSuit] = useState<string | null>(null);
   const [handResultShown, setHandResultShown] = useState(false);
+  const [pendingPlay, setPendingPlay] = useState<{ card: string; prevRows: any[] } | null>(null);
+  const loadInFlightRef = useRef(false);
+  const lastLoadAtRef = useRef(0);
+  const queuedLoadRef = useRef(false);
 
   const backendUrl = getBackendUrl();
 
@@ -338,15 +363,33 @@ export default function GameScreen() {
 
   async function loadGame({ silent = false } = {}) {
     if (!gameId) return;
+    if (loadInFlightRef.current) {
+      queuedLoadRef.current = true;
+      return;
+    }
+    const now = Date.now();
+    if (now - lastLoadAtRef.current < 350) {
+      queuedLoadRef.current = true;
+      return;
+    }
     if (!silent) {
       setLoading(true);
     }
+    loadInFlightRef.current = true;
     try {
       const payload = await fetchGame(gameId);
       setRows(payload.data || []);
     } catch (_err) {
       // Avoid crashing the UI on transient network errors.
     } finally {
+      loadInFlightRef.current = false;
+      lastLoadAtRef.current = Date.now();
+      if (queuedLoadRef.current) {
+        queuedLoadRef.current = false;
+        setTimeout(() => {
+          loadGame({ silent: true });
+        }, 120);
+      }
       if (!silent) {
         setLoading(false);
       }
@@ -540,8 +583,21 @@ export default function GameScreen() {
     if (activeRow?.player_id !== session?.user?.id) {
       return;
     }
+    if (pendingPlay) {
+      return;
+    }
     triggerHaptic();
-    await playCard(gameId, card);
+    const prevRows = rows;
+    const optimisticRows = applyOptimisticPlay(rows, session?.user?.id, card);
+    setPendingPlay({ card, prevRows });
+    setRows(optimisticRows);
+    try {
+      await playCard(gameId, card);
+    } catch (_err) {
+      setRows(prevRows);
+    } finally {
+      setPendingPlay(null);
+    }
   }
 
   async function handleJoin(seat: number) {
@@ -796,7 +852,7 @@ export default function GameScreen() {
                     key={`${card}-${index}`}
                     index={index}
                     total={hand.length}
-                    disabled={gamePhase === 'bid' || activeRow?.player_id !== session?.user?.id}
+                    disabled={gamePhase === 'bid' || activeRow?.player_id !== session?.user?.id || !!pendingPlay}
                     onPress={() => handlePlay(card)}
                     image={image}
                     label={card}
