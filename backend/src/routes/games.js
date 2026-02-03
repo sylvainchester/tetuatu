@@ -186,10 +186,12 @@ router.post('/:gameId/play', async (req, res) => {
     return res.status(400).json({ error: 'missing_card' });
   }
 
+  const timings = { startTs: Date.now() };
   const { data, error } = await service.playCard({
     gameId: req.params.gameId,
     userId: user.id,
-    cardName: card
+    cardName: card,
+    timings
   });
 
   if (error) {
@@ -202,7 +204,13 @@ router.post('/:gameId/play', async (req, res) => {
     data,
     meta: {
       clientTs: Number.isFinite(parsedClientTs) ? parsedClientTs : null,
-      serverTs: Date.now()
+      serverTs: Date.now(),
+      serverProcessingMs: timings.totalMs || null,
+      getRows1Ms: timings.getRows1Ms || null,
+      updates1Ms: timings.updates1Ms || null,
+      updates2Ms: timings.updates2Ms || null,
+      getRows2Ms: timings.getRows2Ms || null,
+      trickMs: timings.trickMs || null
     }
   });
   return res.json({ data });

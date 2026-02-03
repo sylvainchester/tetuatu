@@ -343,7 +343,11 @@ export default function GameScreen() {
   const loadInFlightRef = useRef(false);
   const lastLoadAtRef = useRef(0);
   const queuedLoadRef = useRef(false);
-  const [perfInfo, setPerfInfo] = useState<{ e2eMs: number; serverMs: number | null } | null>(null);
+  const [perfInfo, setPerfInfo] = useState<{
+    e2eMs: number;
+    serverMs: number | null;
+    serverProcessingMs: number | null;
+  } | null>(null);
 
   const backendUrl = getBackendUrl();
   const perfEnabled = process.env.EXPO_PUBLIC_PERF_DEBUG === '1';
@@ -437,7 +441,10 @@ export default function GameScreen() {
           if (Number.isFinite(clientTs)) {
             setPerfInfo({
               e2eMs: Math.max(0, now - clientTs),
-              serverMs: Number.isFinite(serverTs) ? Math.max(0, now - serverTs) : null
+              serverMs: Number.isFinite(serverTs) ? Math.max(0, now - serverTs) : null,
+              serverProcessingMs: Number.isFinite(payload?.meta?.serverProcessingMs)
+                ? Math.max(0, Number(payload.meta.serverProcessingMs))
+                : null
             });
           }
         }
@@ -703,6 +710,7 @@ export default function GameScreen() {
             <Text style={styles.perfText}>
               Latence play → UI: {perfInfo.e2eMs}ms
               {perfInfo.serverMs != null ? ` (server→UI ${perfInfo.serverMs}ms)` : ''}
+              {perfInfo.serverProcessingMs != null ? ` (server ${perfInfo.serverProcessingMs}ms)` : ''}
             </Text>
           </View>
         ) : null}
