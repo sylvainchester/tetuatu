@@ -1,4 +1,4 @@
-const { supabase } = require('../db');
+const { pool } = require('../pg');
 const {
   CARD_NAMES,
   CARD_CODES,
@@ -16,6 +16,33 @@ const {
 const DEFAULT_HAND = '00000000000000000000000000000000';
 const DEFAULT_BIDS = ',,';
 const ROBOT_NAMES = ['donald', 'poutine', 'macron'];
+const COINCHE_COLUMNS = new Set([
+  'game_id',
+  'seat',
+  'player_id',
+  'player_name',
+  'is_robot',
+  'robot_name',
+  'tour',
+  'main',
+  'tas',
+  'encheres',
+  'log',
+  'mise',
+  'belote',
+  'points',
+  'pli',
+  'dernier',
+  'resultat',
+  'story',
+  'partie',
+  'debrief',
+  'atout_restant',
+  'entames',
+  'dernier_pli_rang',
+  'dernier_pli_carte',
+  'proposition'
+]);
 
 function dealHands() {
   const deck = Array.from({ length: 32 }, (_, idx) => idx);
@@ -104,116 +131,155 @@ function pickRobotName(rows) {
 
 async function updateGameTimestamp(gameId) {
   const now = new Date().toISOString();
-  await supabase
-    .from('games')
-    .update({ last_action_at: now, updated_at: now })
-    .eq('id', gameId);
+  await pool.query(
+    'UPDATE games SET last_action_at = $1, updated_at = $1 WHERE id = $2',
+    [now, gameId]
+  );
+}
+
+function buildUpdatePayload(payload) {
+  const keys = Object.keys(payload || {}).filter((key) => COINCHE_COLUMNS.has(key));
+  if (keys.length === 0) return null;
+  const set = keys.map((key, idx) => `"${key}" = $${idx + 1}`);
+  const values = keys.map((key) => payload[key]);
+  return { set, values };
 }
 
 async function updateAllRows(gameId, payload) {
-  const { error } = await supabase
-    .from('coinche_rows')
-    .update(payload)
-    .eq('game_id', gameId);
-
-  if (error) {
+  const update = buildUpdatePayload(payload);
+  if (!update) {
+    return { error: null };
+  }
+  try {
+    await pool.query(
+      `UPDATE coinche_rows SET ${update.set.join(', ')} WHERE game_id = $${update.values.length + 1}`,
+      [...update.values, gameId]
+    );
+    return { error: null };
+  } catch (error) {
     return { error };
   }
-
-  return { error: null };
 }
 
 async function updateRow(rowId, payload) {
-  const { error } = await supabase
-    .from('coinche_rows')
-    .update(payload)
-    .eq('id', rowId);
-
-  if (error) {
+  const update = buildUpdatePayload(payload);
+  if (!update) {
+    return { error: null };
+  }
+  try {
+    await pool.query(
+      `UPDATE coinche_rows SET ${update.set.join(', ')} WHERE id = $${update.values.length + 1}`,
+      [...update.values, rowId]
+    );
+    return { error: null };
+  } catch (error) {
     return { error };
   }
-
-  return { error: null };
 }
 
 async function updateStory(gameId, appendText) {
-  const { data, error } = await supabase
-    .from('coinche_rows')
-    .select('id, story')
-    .eq('game_id', gameId)
-    .eq('seat', 1)
-    .single();
-
-  if (error || !data) {
+  try {
+    const result = await pool.query(
+      'SELECT id, story FROM coinche_rows WHERE game_id = $1 AND seat = 1 LIMIT 1',
+      [gameId]
+    );
+    const row = result.rows[0];
+    if (!row) {
+      return { error: new Error('missing_story_row') };
+    }
+    const nextStory = `${row.story || ''}${appendText}`;
+    return updateRow(row.id, { story: nextStory });
+  } catch (error) {
     return { error };
   }
-
-  const nextStory = `${data.story || ''}${appendText}`;
-  return updateRow(data.id, { story: nextStory });
 }
 
 async function createGame({ userId, username }) {
   const now = new Date().toISOString();
-  const { data: game, error: gameError } = await supabase
-    .from('games')
-    .insert({ created_by: userId, last_action_at: now })
-    .select()
-    .single();
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const gameResult = await client.query(
+      'INSERT INTO games (created_by, last_action_at) VALUES ($1, $2) RETURNING *',
+      [userId, now]
+    );
+    const game = gameResult.rows[0];
+    if (!game) {
+      throw new Error('game_insert_failed');
+    }
 
-  if (gameError) {
-    return { data: null, error: gameError };
+    const hands = dealHands();
+    const rows = [1, 2, 3, 4].map((seat, idx) => ({
+      game_id: game.id,
+      seat,
+      player_id: seat === 3 ? userId : null,
+      player_name: seat === 3 ? username : String(seat),
+      is_robot: false,
+      robot_name: null,
+      tour: seat === 3 ? 'tour' : '',
+      main: hands[idx],
+      tas: seat === 3 ? '%' : '',
+      encheres: ',,',
+      log: now
+    }));
+
+    const values = rows.flatMap((row) => [
+      row.game_id,
+      row.seat,
+      row.player_id,
+      row.player_name,
+      row.is_robot,
+      row.robot_name,
+      row.tour,
+      row.main,
+      row.tas,
+      row.encheres,
+      row.log
+    ]);
+    const placeholders = rows
+      .map((_, idx) => {
+        const base = idx * 11;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11})`;
+      })
+      .join(', ');
+
+    await client.query(
+      `INSERT INTO coinche_rows (game_id, seat, player_id, player_name, is_robot, robot_name, tour, main, tas, encheres, log)
+       VALUES ${placeholders}`,
+      values
+    );
+
+    await client.query('COMMIT');
+    return { data: game, error: null };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    return { data: null, error };
+  } finally {
+    client.release();
   }
-
-  const hands = dealHands();
-  const rows = [1, 2, 3, 4].map((seat, idx) => ({
-    game_id: game.id,
-    seat,
-    player_id: seat === 3 ? userId : null,
-    player_name: seat === 3 ? username : String(seat),
-    is_robot: false,
-    robot_name: null,
-    tour: seat === 3 ? 'tour' : '',
-    main: hands[idx],
-    tas: seat === 3 ? '%' : '',
-    encheres: ',,',
-    log: now
-  }));
-
-  const { error: rowsError } = await supabase
-    .from('coinche_rows')
-    .insert(rows);
-
-  if (rowsError) {
-    return { data: null, error: rowsError };
-  }
-
-  return { data: game, error: null };
 }
 
 async function listGames() {
-  const { data: games, error } = await supabase
-    .from('games')
-    .select('id, created_at, status, last_action_at');
-
-  if (error) {
+  try {
+    const result = await pool.query(
+      'SELECT id, created_at, status, last_action_at FROM games'
+    );
+    return { data: result.rows, error: null };
+  } catch (error) {
     return { data: null, error };
   }
-
-  return { data: games, error: null };
 }
 
 async function getGameRows(gameId) {
-  const { data, error } = await supabase
-    .from('coinche_rows')
-    .select('*')
-    .eq('game_id', gameId)
-    .order('seat', { ascending: true });
-
-  if (error) {
+  try {
+    const result = await pool.query(
+      'SELECT * FROM coinche_rows WHERE game_id = $1 ORDER BY seat ASC',
+      [gameId]
+    );
+    return { data: result.rows, error: null };
+  } catch (error) {
     return { data: null, error };
   }
-
-  return { data, error: null };
 }
 
 async function getGameState(gameId) {
@@ -226,22 +292,17 @@ async function getGameState(gameId) {
 }
 
 async function joinSeat({ gameId, seat, userId, username }) {
-  const { error } = await supabase
-    .from('coinche_rows')
-    .update({
-      player_id: userId,
-      player_name: username,
-      is_robot: false,
-      robot_name: null
-    })
-    .eq('game_id', gameId)
-    .eq('seat', seat);
-
-  if (error) {
+  try {
+    await pool.query(
+      `UPDATE coinche_rows
+       SET player_id = $1, player_name = $2, is_robot = false, robot_name = NULL
+       WHERE game_id = $3 AND seat = $4`,
+      [userId, username, gameId, seat]
+    );
+    return getGameRows(gameId);
+  } catch (error) {
     return { data: null, error };
   }
-
-  return getGameRows(gameId);
 }
 
 async function addRobot({ gameId, seat }) {
@@ -254,19 +315,15 @@ async function addRobot({ gameId, seat }) {
   const robotName = `robot${nextRobotIndex}`;
   const robotAvatar = pickRobotName(rows);
 
-  const { error: updateError } = await supabase
-    .from('coinche_rows')
-    .update({
-      player_id: null,
-      player_name: robotName,
-      is_robot: true,
-      robot_name: robotAvatar
-    })
-    .eq('game_id', gameId)
-    .eq('seat', seat);
-
-  if (updateError) {
-    return { data: null, error: updateError };
+  try {
+    await pool.query(
+      `UPDATE coinche_rows
+       SET player_id = NULL, player_name = $1, is_robot = true, robot_name = $2
+       WHERE game_id = $3 AND seat = $4`,
+      [robotName, robotAvatar, gameId, seat]
+    );
+  } catch (error) {
+    return { data: null, error };
   }
 
   return getGameRows(gameId);
@@ -287,34 +344,27 @@ async function leaveGame({ gameId, userId }) {
   const robotName = `robot${nextRobotIndex}`;
   const robotAvatar = pickRobotName(rows);
 
-  const { error: updateError } = await supabase
-    .from('coinche_rows')
-    .update({
-      player_id: null,
-      player_name: robotName,
-      is_robot: true,
-      robot_name: robotAvatar
-    })
-    .eq('id', currentRow.id);
-
-  if (updateError) {
-    return { data: null, error: updateError };
+  try {
+    await pool.query(
+      `UPDATE coinche_rows
+       SET player_id = NULL, player_name = $1, is_robot = true, robot_name = $2
+       WHERE id = $3`,
+      [robotName, robotAvatar, currentRow.id]
+    );
+  } catch (error) {
+    return { data: null, error };
   }
 
   return getGameRows(gameId);
 }
 
 async function deleteGame({ gameId }) {
-  const { error } = await supabase
-    .from('games')
-    .delete()
-    .eq('id', gameId);
-
-  if (error) {
+  try {
+    await pool.query('DELETE FROM games WHERE id = $1', [gameId]);
+    return { data: { ok: true }, error: null };
+  } catch (error) {
     return { data: null, error };
   }
-
-  return { data: { ok: true }, error: null };
 }
 
 async function dealNewHand({ gameId }) {
