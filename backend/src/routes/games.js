@@ -181,37 +181,24 @@ router.post('/:gameId/play', async (req, res) => {
     return res.status(401).json({ error: authError });
   }
 
-  const { card, clientTs } = req.body || {};
+  const { card } = req.body || {};
   if (!card) {
     return res.status(400).json({ error: 'missing_card' });
   }
 
-  const timings = { startTs: Date.now() };
   const { data, error } = await service.playCard({
     gameId: req.params.gameId,
     userId: user.id,
-    cardName: card,
-    timings
+    cardName: card
   });
 
   if (error) {
     return res.status(400).json({ error: error.message || 'play_failed' });
   }
 
-  const parsedClientTs = Number(clientTs);
   req.app.locals.broadcast?.(req.params.gameId, {
     type: 'card.played',
-    data,
-    meta: {
-      clientTs: Number.isFinite(parsedClientTs) ? parsedClientTs : null,
-      serverTs: Date.now(),
-      serverProcessingMs: timings.totalMs || null,
-      getRows1Ms: timings.getRows1Ms || null,
-      updates1Ms: timings.updates1Ms || null,
-      updates2Ms: timings.updates2Ms || null,
-      getRows2Ms: timings.getRows2Ms || null,
-      trickMs: timings.trickMs || null
-    }
+    data
   });
   return res.json({ data });
 });

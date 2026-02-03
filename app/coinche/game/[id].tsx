@@ -343,19 +343,7 @@ export default function GameScreen() {
   const loadInFlightRef = useRef(false);
   const lastLoadAtRef = useRef(0);
   const queuedLoadRef = useRef(false);
-  const [perfInfo, setPerfInfo] = useState<{
-    e2eMs: number;
-    serverMs: number | null;
-    serverProcessingMs: number | null;
-    getRows1Ms: number | null;
-    updates1Ms: number | null;
-    updates2Ms: number | null;
-    getRows2Ms: number | null;
-    trickMs: number | null;
-  } | null>(null);
-
   const backendUrl = getBackendUrl();
-  const perfEnabled = process.env.EXPO_PUBLIC_PERF_DEBUG === '1';
   const wakeLock = useWakeLock();
 
   function triggerHaptic() {
@@ -439,35 +427,6 @@ export default function GameScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
-        if (perfEnabled && payload?.type === 'card.played' && payload?.meta?.clientTs) {
-          const now = Date.now();
-          const clientTs = Number(payload.meta.clientTs);
-          const serverTs = payload?.meta?.serverTs ? Number(payload.meta.serverTs) : null;
-          if (Number.isFinite(clientTs)) {
-            setPerfInfo({
-              e2eMs: Math.max(0, now - clientTs),
-              serverMs: Number.isFinite(serverTs) ? Math.max(0, now - serverTs) : null,
-              serverProcessingMs: Number.isFinite(payload?.meta?.serverProcessingMs)
-                ? Math.max(0, Number(payload.meta.serverProcessingMs))
-                : null,
-              getRows1Ms: Number.isFinite(payload?.meta?.getRows1Ms)
-                ? Math.max(0, Number(payload.meta.getRows1Ms))
-                : null,
-              updates1Ms: Number.isFinite(payload?.meta?.updates1Ms)
-                ? Math.max(0, Number(payload.meta.updates1Ms))
-                : null,
-              updates2Ms: Number.isFinite(payload?.meta?.updates2Ms)
-                ? Math.max(0, Number(payload.meta.updates2Ms))
-                : null,
-              getRows2Ms: Number.isFinite(payload?.meta?.getRows2Ms)
-                ? Math.max(0, Number(payload.meta.getRows2Ms))
-                : null,
-              trickMs: Number.isFinite(payload?.meta?.trickMs)
-                ? Math.max(0, Number(payload.meta.trickMs))
-                : null
-            });
-          }
-        }
         if (Array.isArray(payload?.data)) {
           setRows(payload.data);
           return;
@@ -664,7 +623,7 @@ export default function GameScreen() {
     setPendingPlay({ card, prevRows });
     setRows(optimisticRows);
     try {
-      await playCard(gameId, card, Date.now());
+      await playCard(gameId, card);
     } catch (_err) {
       setRows(prevRows);
     } finally {
@@ -725,21 +684,6 @@ export default function GameScreen() {
             <Text style={styles.deleteButtonText}>Supprimer</Text>
           </Pressable>
         </View>
-        {perfEnabled && perfInfo ? (
-          <View style={styles.perfBadge}>
-            <Text style={styles.perfText}>
-              Latence play → UI: {perfInfo.e2eMs}ms
-              {perfInfo.serverMs != null ? ` (server→UI ${perfInfo.serverMs}ms)` : ''}
-              {perfInfo.serverProcessingMs != null ? ` (server ${perfInfo.serverProcessingMs}ms)` : ''}
-            </Text>
-            <Text style={styles.perfText}>
-              Rows1 {perfInfo.getRows1Ms ?? '-'}ms · Updates1 {perfInfo.updates1Ms ?? '-'}ms · Updates2 {perfInfo.updates2Ms ?? '-'}ms
-            </Text>
-            <Text style={styles.perfText}>
-              Rows2 {perfInfo.getRows2Ms ?? '-'}ms · Trick {perfInfo.trickMs ?? '-'}ms
-            </Text>
-          </View>
-        ) : null}
 
         {currentRow ? (
           <View style={styles.seatLayout}>
@@ -1615,17 +1559,5 @@ const styles = StyleSheet.create({
   },
   storyBlock: {
     marginTop: 12
-  },
-  perfBadge: {
-    marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    backgroundColor: '#e2e8f0'
-  },
-  perfText: {
-    fontSize: 12,
-    color: '#0f172a'
   }
 });

@@ -661,9 +661,8 @@ async function cancelBids({ gameId }) {
   return getGameRows(gameId);
 }
 
-async function playCard({ gameId, userId, cardName, timings }) {
+async function playCard({ gameId, userId, cardName }) {
   const { data: rows, error } = await getGameRows(gameId);
-  if (timings) timings.getRows1Ms = Date.now() - timings.startTs;
   if (error) {
     return { data: null, error };
   }
@@ -712,7 +711,6 @@ async function playCard({ gameId, userId, cardName, timings }) {
   await updateRow(activeRow.id, updatePayload);
   await updateStory(gameId, `${activeRow.player_name} joue ${cardName}.\n`);
   await clearPropositions(gameId, rows);
-  if (timings) timings.updates1Ms = Date.now() - timings.startTs;
 
   await updateAllRows(gameId, { log: new Date().toISOString() });
 
@@ -729,10 +727,8 @@ async function playCard({ gameId, userId, cardName, timings }) {
   if (nextRow) {
     await updateRow(nextRow.id, { tour: 'tour' });
   }
-  if (timings) timings.updates2Ms = Date.now() - timings.startTs;
 
   const refreshed = await getGameRows(gameId);
-  if (timings) timings.getRows2Ms = Date.now() - timings.startTs;
   if (refreshed.error) {
     return refreshed;
   }
@@ -770,11 +766,9 @@ async function playCard({ gameId, userId, cardName, timings }) {
     if (allHandsEmpty) {
       await collectTrick({ gameId });
     }
-    if (timings) timings.trickMs = Date.now() - timings.startTs;
   }
 
   await updateGameTimestamp(gameId);
-  if (timings) timings.totalMs = Date.now() - timings.startTs;
   return getGameRows(gameId);
 }
 
