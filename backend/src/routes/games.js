@@ -181,7 +181,7 @@ router.post('/:gameId/play', async (req, res) => {
     return res.status(401).json({ error: authError });
   }
 
-  const { card } = req.body || {};
+  const { card, clientTs } = req.body || {};
   if (!card) {
     return res.status(400).json({ error: 'missing_card' });
   }
@@ -196,7 +196,15 @@ router.post('/:gameId/play', async (req, res) => {
     return res.status(400).json({ error: error.message || 'play_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'card.played', data });
+  const parsedClientTs = Number(clientTs);
+  req.app.locals.broadcast?.(req.params.gameId, {
+    type: 'card.played',
+    data,
+    meta: {
+      clientTs: Number.isFinite(parsedClientTs) ? parsedClientTs : null,
+      serverTs: Date.now()
+    }
+  });
   return res.json({ data });
 });
 

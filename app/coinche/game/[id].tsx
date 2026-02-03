@@ -343,8 +343,10 @@ export default function GameScreen() {
   const loadInFlightRef = useRef(false);
   const lastLoadAtRef = useRef(0);
   const queuedLoadRef = useRef(false);
+  const [perfInfo, setPerfInfo] = useState<{ e2eMs: number; serverMs: number | null } | null>(null);
 
   const backendUrl = getBackendUrl();
+  const perfEnabled = process.env.EXPO_PUBLIC_PERF_DEBUG === '1';
   const wakeLock = useWakeLock();
 
   function triggerHaptic() {
@@ -428,6 +430,17 @@ export default function GameScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
+        if (perfEnabled && payload?.type === 'card.played' && payload?.meta?.clientTs) {
+          const now = Date.now();
+          const clientTs = Number(payload.meta.clientTs);
+          const serverTs = payload?.meta?.serverTs ? Number(payload.meta.serverTs) : null;
+          if (Number.isFinite(clientTs)) {
+            setPerfInfo({
+              e2eMs: Math.max(0, now - clientTs),
+              serverMs: Number.isFinite(serverTs) ? Math.max(0, now - serverTs) : null
+            });
+          }
+        }
         if (Array.isArray(payload?.data)) {
           setRows(payload.data);
           return;
@@ -624,7 +637,7 @@ export default function GameScreen() {
     setPendingPlay({ card, prevRows });
     setRows(optimisticRows);
     try {
-      await playCard(gameId, card);
+      await playCard(gameId, card, Date.now());
     } catch (_err) {
       setRows(prevRows);
     } finally {
@@ -685,6 +698,14 @@ export default function GameScreen() {
             <Text style={styles.deleteButtonText}>Supprimer</Text>
           </Pressable>
         </View>
+        {perfEnabled && perfInfo ? (
+          <View style={styles.perfBadge}>
+            <Text style={styles.perfText}>
+              Latence play → UI: {perfInfo.e2eMs}ms
+              {perfInfo.serverMs != null ? ` (server→UI ${perfInfo.serverMs}ms)` : ''}
+            </Text>
+          </View>
+        ) : null}
 
         {currentRow ? (
           <View style={styles.seatLayout}>
@@ -1560,5 +1581,17 @@ const styles = StyleSheet.create({
   },
   storyBlock: {
     marginTop: 12
+  },
+  perfBadge: {
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    backgroundColor: '#e2e8f0'
+  },
+  perfText: {
+    fontSize: 12,
+    color: '#0f172a'
   }
 });

@@ -97,10 +97,10 @@ export async function cancelBids(gameId: string) {
   return request(`/games/${gameId}/bids/cancel`, { method: 'POST' });
 }
 
-export async function playCard(gameId: string, card: string) {
+export async function playCard(gameId: string, card: string, clientTs?: number) {
   return request(`/games/${gameId}/play`, {
     method: 'POST',
-    body: JSON.stringify({ card })
+    body: JSON.stringify({ card, clientTs })
   });
 }
 
