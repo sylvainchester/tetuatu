@@ -7,6 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { getBackendUrl } from '@/lib/backend';
 import { supabase } from '@/lib/supabase';
 import { avatarImages, cardImages } from '@/lib/assets';
+import { useWakeLock } from '@/lib/wakeLock';
 import {
   addRobot,
   cancelBids,
@@ -344,6 +345,7 @@ export default function GameScreen() {
   const queuedLoadRef = useRef(false);
 
   const backendUrl = getBackendUrl();
+  const wakeLock = useWakeLock();
 
   function triggerHaptic() {
     try {
@@ -366,6 +368,11 @@ export default function GameScreen() {
     return () => {
       subscription.subscription.unsubscribe();
     };
+  }, []);
+
+  useEffect(() => {
+    wakeLock.enable();
+    return () => wakeLock.disable();
   }, []);
 
   useEffect(() => {

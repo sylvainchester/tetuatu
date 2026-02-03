@@ -1,6 +1,7 @@
 import { getImpostorApiBase, getImpostorAuthHeaders } from '@/lib/impostor/api';
 import { ensureProfileUsername } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
+import { useWakeLock } from '@/lib/wakeLock';
 import { useGameStore } from '@/store/impostor/useGameStore';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
@@ -21,6 +22,7 @@ export default function GameScreen() {
     const [isRevealing, setIsRevealing] = useState(false);
     const [sessionChecked, setSessionChecked] = useState(false);
     const [initError, setInitError] = useState('');
+    const wakeLock = useWakeLock();
 
     const gameId = id;
     const apiUrl = getImpostorApiBase();
@@ -60,6 +62,11 @@ export default function GameScreen() {
             subscription.subscription.unsubscribe();
         };
     }, [ensureUser]);
+
+    useEffect(() => {
+        wakeLock.enable();
+        return () => wakeLock.disable();
+    }, []);
 
     useEffect(() => {
         if (!sessionChecked) return;
