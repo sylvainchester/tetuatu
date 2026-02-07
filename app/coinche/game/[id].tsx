@@ -346,6 +346,7 @@ export default function GameScreen() {
   const prevRowsRef = useRef<any[]>([]);
   const revealTimeoutsRef = useRef<number[]>([]);
   const revealTokenRef = useRef(0);
+  const revealedPlisRef = useRef<Record<number, boolean>>({});
   const backendUrl = getBackendUrl();
   const wakeLock = useWakeLock();
 
@@ -423,6 +424,14 @@ export default function GameScreen() {
     loadGame();
   }, [gameId]);
 
+  function updateRevealedPlis(next: Record<number, boolean> | ((prev: Record<number, boolean>) => Record<number, boolean>)) {
+    setRevealedPlis((prev) => {
+      const computed = typeof next === 'function' ? next(prev) : next;
+      revealedPlisRef.current = computed;
+      return computed;
+    });
+  }
+
   useEffect(() => {
     prevRowsRef.current = rows;
     if (!rows.length) return;
@@ -434,11 +443,12 @@ export default function GameScreen() {
 
     const plis = rows.filter((row) => row.pli);
     if (plis.length === 0) {
-      setRevealedPlis({});
+      updateRevealedPlis({});
       return;
     }
 
-    const nextReveal: Record<number, boolean> = { ...revealedPlis };
+    const currentSeat = rows.find((row) => row.player_id === session?.user?.id)?.seat ?? null;
+    const nextReveal: Record<number, boolean> = { ...revealedPlisRef.current };
     rows.forEach((row) => {
       if (!row.pli) {
         delete nextReveal[row.seat];
@@ -447,24 +457,28 @@ export default function GameScreen() {
       }
     });
 
+    if (currentSeat != null && nextReveal[currentSeat] === false) {
+      nextReveal[currentSeat] = true;
+    }
+
     const toAnimate = plis
       .filter((row) => nextReveal[row.seat] === false)
       .sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
 
     if (toAnimate.length === 0) {
-      setRevealedPlis(nextReveal);
+      updateRevealedPlis(nextReveal);
       return;
     }
 
-    setRevealedPlis(nextReveal);
+    updateRevealedPlis(nextReveal);
     toAnimate.forEach((row, index) => {
       const timeoutId = setTimeout(() => {
         if (revealTokenRef.current !== token) return;
-        setRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
+        updateRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
       }, index * 500);
       revealTimeoutsRef.current.push(timeoutId as unknown as number);
     });
-  }, [rows, revealedPlis]);
+  }, [rows, session?.user?.id]);
 
   useEffect(() => {
     if (!backendUrl || !gameId) return;
