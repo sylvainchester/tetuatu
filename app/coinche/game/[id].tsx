@@ -424,66 +424,47 @@ export default function GameScreen() {
   }, [gameId]);
 
   useEffect(() => {
-    const prevRows = prevRowsRef.current;
     prevRowsRef.current = rows;
     if (!rows.length) return;
-
-    const prevBySeat = new Map(prevRows.map((row) => [row.seat, row]));
-    const newPlays = rows.filter((row) => row.pli && !(prevBySeat.get(row.seat)?.pli));
-    const plis = rows.filter((row) => row.pli);
-    const hasAnyPli = plis.length > 0;
-    const prevPlisCount = prevRows.filter((row) => row.pli).length;
 
     revealTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
     revealTimeoutsRef.current = [];
     revealTokenRef.current += 1;
     const token = revealTokenRef.current;
 
-    if (!hasAnyPli) {
+    const plis = rows.filter((row) => row.pli);
+    if (plis.length === 0) {
       setRevealedPlis({});
       return;
     }
 
-    const baseReveal: Record<number, boolean> = {};
+    const nextReveal: Record<number, boolean> = { ...revealedPlis };
     rows.forEach((row) => {
-      if (row.pli) {
-        baseReveal[row.seat] = true;
+      if (!row.pli) {
+        delete nextReveal[row.seat];
+      } else if (nextReveal[row.seat] === undefined) {
+        nextReveal[row.seat] = false;
       }
     });
 
-    const orderedAll = [...plis].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
-    const maxOrder = orderedAll.reduce((max, row) => Math.max(max, Number(row.dernier || 0)), 0);
-    const currentSeat = rows.find((row) => row.player_id === session?.user?.id)?.seat ?? null;
-    const myOrder = currentSeat ? Number(plis.find((row) => row.seat === currentSeat)?.dernier || 0) : null;
-    const isLastToPlay = plis.length === 4 && currentSeat != null && myOrder === maxOrder;
+    const toAnimate = plis
+      .filter((row) => nextReveal[row.seat] === false)
+      .sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
 
-    let animatedPlays: typeof plis = [];
-    if (newPlays.length > 1 && newPlays.every((row) => !row.player_id)) {
-      animatedPlays = [...newPlays].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
-    } else if (plis.length === 4 && prevPlisCount < 4 && isLastToPlay) {
-      animatedPlays = orderedAll.filter((row) => Number(row.dernier || 0) < maxOrder);
-    } else if (plis.length === 4 && prevPlisCount < 4 && newPlays.length > 1) {
-      animatedPlays = orderedAll;
-    }
-
-    if (animatedPlays.length > 0) {
-      animatedPlays.forEach((row) => {
-        baseReveal[row.seat] = false;
-      });
-      setRevealedPlis(baseReveal);
-
-      animatedPlays.forEach((row, index) => {
-        const timeoutId = setTimeout(() => {
-          if (revealTokenRef.current !== token) return;
-          setRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
-        }, index * 500);
-        revealTimeoutsRef.current.push(timeoutId as unknown as number);
-      });
+    if (toAnimate.length === 0) {
+      setRevealedPlis(nextReveal);
       return;
     }
 
-    setRevealedPlis(baseReveal);
-  }, [rows, session?.user?.id]);
+    setRevealedPlis(nextReveal);
+    toAnimate.forEach((row, index) => {
+      const timeoutId = setTimeout(() => {
+        if (revealTokenRef.current !== token) return;
+        setRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
+      }, index * 500);
+      revealTimeoutsRef.current.push(timeoutId as unknown as number);
+    });
+  }, [rows, revealedPlis]);
 
   useEffect(() => {
     if (!backendUrl || !gameId) return;
