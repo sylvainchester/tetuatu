@@ -400,11 +400,25 @@ async function leaveGame({ gameId, userId }) {
 }
 
 async function deleteGame({ gameId }) {
+  let client;
   try {
-    await pool.query('DELETE FROM games WHERE id = $1', [gameId]);
+    client = await pool.connect();
+    await client.query('BEGIN');
+    await client.query('DELETE FROM coinche_rows WHERE game_id = $1', [gameId]);
+    await client.query('DELETE FROM games WHERE id = $1', [gameId]);
+    await client.query('COMMIT');
     return { data: { ok: true }, error: null };
   } catch (error) {
+    if (client) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (_rollbackError) {
+        // no-op
+      }
+    }
     return { data: null, error };
+  } finally {
+    if (client) client.release();
   }
 }
 
