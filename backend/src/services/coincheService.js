@@ -12,6 +12,7 @@ const {
   addCardToHand,
   scoreCard
 } = require('./coincheRules');
+const { decideAction } = require('./coincheAi');
 
 const DEFAULT_HAND = '00000000000000000000000000000000';
 const DEFAULT_BIDS = ',,';
@@ -41,8 +42,48 @@ const COINCHE_COLUMNS = new Set([
   'entames',
   'dernier_pli_rang',
   'dernier_pli_carte',
-  'proposition'
+  'proposition',
+  'proposition_reason'
 ]);
+
+let aiLogReady = false;
+let propositionReady = false;
+
+async function ensureAiLogTable() {
+  if (aiLogReady) return;
+  await pool.query(
+    `CREATE TABLE IF NOT EXISTS coinche_ai_logs (
+      id BIGSERIAL PRIMARY KEY,
+      game_id TEXT NOT NULL,
+      seat INT NOT NULL,
+      action TEXT NOT NULL,
+      reason TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    )`
+  );
+  aiLogReady = true;
+}
+
+async function ensurePropositionColumn() {
+  if (propositionReady) return;
+  await pool.query(
+    'ALTER TABLE coinche_rows ADD COLUMN IF NOT EXISTS proposition_reason TEXT'
+  );
+  propositionReady = true;
+}
+
+async function writeAiLog({ gameId, seat, action, reason }) {
+  try {
+    await ensureAiLogTable();
+    await pool.query(
+      'INSERT INTO coinche_ai_logs (game_id, seat, action, reason) VALUES ($1, $2, $3, $4)',
+      [String(gameId), seat, action, reason || '']
+    );
+  } catch (error) {
+    // Avoid breaking gameplay if logging fails.
+    console.warn('[AI LOG] Failed:', error?.message || error);
+  }
+}
 
 function dealHands() {
   const deck = Array.from({ length: 32 }, (_, idx) => idx);
@@ -403,9 +444,10 @@ async function dealNewHand({ gameId }) {
 }
 
 async function clearPropositions(gameId, rows) {
+  await ensurePropositionColumn();
   const updates = rows
     .filter((row) => row.proposition !== 'desactive')
-    .map((row) => updateRow(row.id, { proposition: '' }));
+    .map((row) => updateRow(row.id, { proposition: '', proposition_reason: '' }));
 
   await Promise.all(updates);
 }
@@ -960,13 +1002,86 @@ async function toggleHints({ gameId, userId, enabled }) {
   }
 
   const value = enabled ? '' : 'desactive';
-  await updateRow(row.id, { proposition: value });
+  await ensurePropositionColumn();
+  await updateRow(row.id, { proposition: value, proposition_reason: '' });
   await updateGameTimestamp(gameId);
   return getGameRows(gameId);
 }
 
 function notImplemented() {
   return { data: null, error: { message: 'not_implemented' } };
+}
+
+async function applyAiForGame({ gameId, maxSteps = 6 }) {
+  for (let step = 0; step < maxSteps; step += 1) {
+    const { data: rows, error } = await getGameRows(gameId);
+    if (error) {
+      return { data: null, error };
+    }
+    const activeRow = rows.find((row) => row.tour === 'tour');
+    if (!activeRow) {
+      return { data: rows, error: null };
+    }
+
+    const decision = decideAction(rows);
+    if (activeRow.is_robot) {
+      if (decision.type === 'bid') {
+        await writeAiLog({
+          gameId,
+          seat: activeRow.seat,
+          action: 'bid',
+          reason: decision.reason
+        });
+        await bid({
+          gameId,
+          userId: activeRow.player_id || 'robot',
+          contrat: decision.bid?.contrat || 'passe',
+          atout: decision.bid?.atout || '',
+          coinche: decision.bid?.coinche || ''
+        });
+      } else if (decision.type === 'play' && decision.card) {
+        await writeAiLog({
+          gameId,
+          seat: activeRow.seat,
+          action: 'play',
+          reason: decision.reason
+        });
+        await playCard({
+          gameId,
+          userId: activeRow.player_id || 'robot',
+          cardName: decision.card
+        });
+      } else if (decision.type === 'collect') {
+        await writeAiLog({
+          gameId,
+          seat: activeRow.seat,
+          action: 'collect',
+          reason: decision.reason
+        });
+        await collectTrick({ gameId });
+      } else {
+        return { data: rows, error: null };
+      }
+      continue;
+    }
+
+    if (activeRow.proposition !== 'desactive') {
+      await ensurePropositionColumn();
+      await writeAiLog({
+        gameId,
+        seat: activeRow.seat,
+        action: 'proposition',
+        reason: decision.reason
+      });
+      await updateRow(activeRow.id, {
+        proposition: decision.proposition || '',
+        proposition_reason: decision.reason || ''
+      });
+    }
+    return getGameRows(gameId);
+  }
+
+  return getGameRows(gameId);
 }
 
 module.exports = {
@@ -987,5 +1102,6 @@ module.exports = {
   finishDebrief,
   toggleHints,
   dealNewHand,
-  aiDecision: notImplemented
+  aiDecision: notImplemented,
+  applyAiForGame
 };

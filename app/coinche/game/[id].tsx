@@ -869,6 +869,15 @@ export default function GameScreen() {
                 </View>
               ) : null}
             </View>
+            {currentRow?.proposition && currentRow.proposition !== 'desactive' ? (
+              <View style={styles.propositionBlock}>
+                <Text style={styles.propositionLabel}>Proposition</Text>
+                <Text style={styles.propositionValue}>{currentRow.proposition}</Text>
+                {currentRow.proposition_reason ? (
+                  <Text style={styles.propositionReason}>{currentRow.proposition_reason}</Text>
+                ) : null}
+              </View>
+            ) : null}
             <View
               style={[
                 styles.handGrid,
@@ -1398,6 +1407,31 @@ const styles = StyleSheet.create({
   sectionText: {
     marginTop: 8,
     color: '#cbd5f5'
+  },
+  propositionBlock: {
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    borderWidth: 1,
+    borderColor: '#1e293b'
+  },
+  propositionLabel: {
+    color: '#94a3b8',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1
+  },
+  propositionValue: {
+    marginTop: 4,
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  propositionReason: {
+    marginTop: 6,
+    color: '#cbd5f5',
+    fontSize: 12
   },
   pillRow: {
     marginTop: 8

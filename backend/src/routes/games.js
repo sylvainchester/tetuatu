@@ -34,6 +34,14 @@ router.get('/:gameId', async (req, res) => {
   return res.json({ data });
 });
 
+async function applyAi(gameId) {
+  const { data, error } = await service.applyAiForGame({ gameId });
+  if (error) {
+    return { data: null, error };
+  }
+  return { data, error: null };
+}
+
 router.post('/', async (req, res) => {
   const { user, error: authError } = await getUserFromRequest(req);
   if (!user) {
@@ -54,9 +62,11 @@ router.post('/', async (req, res) => {
     return res.status(500).json({ error: error.message || 'create_failed' });
   }
 
-  req.app.locals.broadcast?.(data.id, { type: 'game.created', data });
-  req.app.locals.broadcast?.(null, { type: 'games.changed', data });
-  return res.status(201).json({ data });
+  const aiResult = await applyAi(data.id);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(data.id, { type: 'game.created', data: payload });
+  req.app.locals.broadcast?.(null, { type: 'games.changed', data: payload });
+  return res.status(201).json({ data: payload });
 });
 
 router.post('/:gameId/join', async (req, res) => {
@@ -86,8 +96,10 @@ router.post('/:gameId/join', async (req, res) => {
     return res.status(500).json({ error: error.message || 'join_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.joined', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.joined', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/robot', async (req, res) => {
@@ -110,8 +122,10 @@ router.post('/:gameId/robot', async (req, res) => {
     return res.status(500).json({ error: error.message || 'robot_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.robot_added', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.robot_added', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/leave', async (req, res) => {
@@ -129,8 +143,10 @@ router.post('/:gameId/leave', async (req, res) => {
     return res.status(400).json({ error: error.message || 'leave_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.left', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.left', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/bids', async (req, res) => {
@@ -156,8 +172,10 @@ router.post('/:gameId/bids', async (req, res) => {
     return res.status(400).json({ error: error.message || 'bid_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'bid.placed', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'bid.placed', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/bids/cancel', async (req, res) => {
@@ -171,8 +189,10 @@ router.post('/:gameId/bids/cancel', async (req, res) => {
     return res.status(500).json({ error: error.message || 'cancel_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'bid.cancelled', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'bid.cancelled', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/play', async (req, res) => {
@@ -196,11 +216,13 @@ router.post('/:gameId/play', async (req, res) => {
     return res.status(400).json({ error: error.message || 'play_failed' });
   }
 
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
   req.app.locals.broadcast?.(req.params.gameId, {
     type: 'card.played',
-    data
+    data: payload
   });
-  return res.json({ data });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/undo-last', async (req, res) => {
@@ -214,8 +236,10 @@ router.post('/:gameId/undo-last', async (req, res) => {
     return res.status(500).json({ error: error.message || 'undo_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'card.undone', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'card.undone', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/trick/collect', async (req, res) => {
@@ -229,8 +253,10 @@ router.post('/:gameId/trick/collect', async (req, res) => {
     return res.status(400).json({ error: error.message || 'collect_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'trick.collected', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'trick.collected', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/trick/cancel', async (req, res) => {
@@ -244,8 +270,10 @@ router.post('/:gameId/trick/cancel', async (req, res) => {
     return res.status(500).json({ error: error.message || 'trick_cancel_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'trick.cancelled', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'trick.cancelled', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/debrief/finish', async (req, res) => {
@@ -259,8 +287,10 @@ router.post('/:gameId/debrief/finish', async (req, res) => {
     return res.status(500).json({ error: error.message || 'debrief_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'debrief.finished', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'debrief.finished', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/hints/disable', async (req, res) => {
@@ -277,8 +307,10 @@ router.post('/:gameId/hints/disable', async (req, res) => {
   if (error) {
     return res.status(400).json({ error: error.message || 'hints_failed' });
   }
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'hints.disabled', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'hints.disabled', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/hints/enable', async (req, res) => {
@@ -295,8 +327,10 @@ router.post('/:gameId/hints/enable', async (req, res) => {
   if (error) {
     return res.status(400).json({ error: error.message || 'hints_failed' });
   }
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'hints.enabled', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'hints.enabled', data: payload });
+  return res.json({ data: payload });
 });
 
 router.post('/:gameId/deal', async (req, res) => {
@@ -310,8 +344,10 @@ router.post('/:gameId/deal', async (req, res) => {
     return res.status(500).json({ error: error.message || 'deal_failed' });
   }
 
-  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.dealt', data });
-  return res.json({ data });
+  const aiResult = await applyAi(req.params.gameId);
+  const payload = aiResult.data || data;
+  req.app.locals.broadcast?.(req.params.gameId, { type: 'game.dealt', data: payload });
+  return res.json({ data: payload });
 });
 
 router.delete('/:gameId', async (req, res) => {
