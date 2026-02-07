@@ -430,7 +430,9 @@ export default function GameScreen() {
 
     const prevBySeat = new Map(prevRows.map((row) => [row.seat, row]));
     const newPlays = rows.filter((row) => row.pli && !(prevBySeat.get(row.seat)?.pli));
-    const hasAnyPli = rows.some((row) => row.pli);
+    const plis = rows.filter((row) => row.pli);
+    const hasAnyPli = plis.length > 0;
+    const prevPlisCount = prevRows.filter((row) => row.pli).length;
 
     revealTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
     revealTimeoutsRef.current = [];
@@ -449,14 +451,28 @@ export default function GameScreen() {
       }
     });
 
+    const orderedAll = [...plis].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
+    const maxOrder = orderedAll.reduce((max, row) => Math.max(max, Number(row.dernier || 0)), 0);
+    const currentSeat = rows.find((row) => row.player_id === session?.user?.id)?.seat ?? null;
+    const myOrder = currentSeat ? Number(plis.find((row) => row.seat === currentSeat)?.dernier || 0) : null;
+    const isLastToPlay = plis.length === 4 && currentSeat != null && myOrder === maxOrder;
+
+    let animatedPlays: typeof plis = [];
     if (newPlays.length > 1 && newPlays.every((row) => !row.player_id)) {
-      newPlays.forEach((row) => {
+      animatedPlays = [...newPlays].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
+    } else if (plis.length === 4 && prevPlisCount < 4 && isLastToPlay) {
+      animatedPlays = orderedAll.filter((row) => Number(row.dernier || 0) < maxOrder);
+    } else if (plis.length === 4 && prevPlisCount < 4 && newPlays.length > 1) {
+      animatedPlays = orderedAll;
+    }
+
+    if (animatedPlays.length > 0) {
+      animatedPlays.forEach((row) => {
         baseReveal[row.seat] = false;
       });
       setRevealedPlis(baseReveal);
 
-      const ordered = [...newPlays].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
-      ordered.forEach((row, index) => {
+      animatedPlays.forEach((row, index) => {
         const timeoutId = setTimeout(() => {
           if (revealTokenRef.current !== token) return;
           setRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
@@ -467,7 +483,7 @@ export default function GameScreen() {
     }
 
     setRevealedPlis(baseReveal);
-  }, [rows]);
+  }, [rows, session?.user?.id]);
 
   useEffect(() => {
     if (!backendUrl || !gameId) return;
