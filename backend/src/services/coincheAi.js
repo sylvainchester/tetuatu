@@ -589,6 +589,7 @@ function decideBidding(state) {
           if (c <= 4) {
             if (nombre_as[c] > 0) poids[c] += 10 * nombre_as[c];
             if (jeu[5 + 8 * (c - 1)] === 1 && jeu[6 + 8 * (c - 1)] === 1) poids[c] += 10;
+            if (jeu[2 + 8 * (c - 1)] === 1 || jeu[4 + 8 * (c - 1)] === 1) poids[c] += 10;
           } else if (nombre_cartes_maitre[c] > 0) {
             if (Math.max(...enchere_par_couleur[rang_robot].slice(1)) > 80) {
               if (c === 5) poids[c] = 10 * (nombre_cartes_maitre[c] - 1);
