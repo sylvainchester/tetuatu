@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   SafeAreaView,
@@ -10,7 +11,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 
-import { createGame, listGames } from '@/lib/api';
+import { createGame, deleteGame, listGames } from '@/lib/api';
 import { getBackendUrl } from '@/lib/backend';
 import { ensureProfileUsername } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
@@ -109,6 +110,25 @@ export default function CoincheHomeScreen() {
     router.replace('/');
   }
 
+  function handleDelete(gameId: string) {
+    Alert.alert('Supprimer la table ?', 'Cette action est definitive.', [
+      { text: 'Annuler', style: 'cancel' },
+      {
+        text: 'Supprimer',
+        style: 'destructive',
+        onPress: async () => {
+          setRequestError('');
+          try {
+            await deleteGame(gameId);
+            setGames((prev) => prev.filter((game) => game.id !== gameId));
+          } catch (err: any) {
+            setRequestError(err?.message || 'Erreur suppression');
+          }
+        }
+      }
+    ]);
+  }
+
   if (!sessionChecked || !session) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -157,8 +177,15 @@ export default function CoincheHomeScreen() {
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
             <Pressable style={styles.card} onPress={() => router.push(`/coinche/game/${item.id}`)}>
-              <Text style={styles.cardTitle}>Table {item.id.slice(0, 6).toUpperCase()}</Text>
-              <Text style={styles.cardMeta}>Derniere action: {item.last_action_at || '---'}</Text>
+              <View style={styles.cardRow}>
+                <View style={styles.cardInfo}>
+                  <Text style={styles.cardTitle}>Table {item.id.slice(0, 6).toUpperCase()}</Text>
+                  <Text style={styles.cardMeta}>Derniere action: {item.last_action_at || '---'}</Text>
+                </View>
+                <Pressable style={styles.trashButton} onPress={() => handleDelete(item.id)}>
+                  <Text style={styles.trashButtonText}>🗑</Text>
+                </Pressable>
+              </View>
             </Pressable>
           )}
           ListEmptyComponent={<Text style={styles.empty}>Aucune table active.</Text>}
@@ -261,11 +288,20 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#f8fafc',
-    padding: 18,
+    padding: 16,
     borderRadius: 20,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#e2e8f0'
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12
+  },
+  cardInfo: {
+    flex: 1
   },
   cardTitle: {
     fontSize: 16,
@@ -275,6 +311,19 @@ const styles = StyleSheet.create({
   cardMeta: {
     marginTop: 6,
     color: '#475569'
+  },
+  trashButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fee2e2',
+    borderWidth: 1,
+    borderColor: '#fecaca'
+  },
+  trashButtonText: {
+    fontSize: 18
   },
   empty: {
     textAlign: 'center',

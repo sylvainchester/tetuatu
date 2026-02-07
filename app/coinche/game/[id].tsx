@@ -14,7 +14,6 @@ import {
   cancelTrick,
   collectTrick,
   dealHand,
-  deleteGame,
   fetchGame,
   joinGame,
   placeBid,
@@ -427,6 +426,10 @@ export default function GameScreen() {
     ws.onmessage = (event) => {
       try {
         const payload = JSON.parse(event.data);
+        if (payload?.type === 'game.deleted') {
+          router.replace('/coinche');
+          return;
+        }
         if (Array.isArray(payload?.data)) {
           setRows(payload.data);
           return;
@@ -643,21 +646,6 @@ export default function GameScreen() {
     await loadGame();
   }
 
-  async function handleDeleteGame() {
-    triggerHaptic();
-    Alert.alert('Supprimer la table ?', 'Cette action est definitive.', [
-      { text: 'Annuler', style: 'cancel' },
-      {
-        text: 'Supprimer',
-        style: 'destructive',
-        onPress: async () => {
-          await deleteGame(gameId);
-          router.replace('/coinche');
-        }
-      }
-    ]);
-  }
-
   async function handleDeal() {
     triggerHaptic();
     await dealHand(gameId);
@@ -680,9 +668,7 @@ export default function GameScreen() {
             <Text style={styles.back}>Retour</Text>
           </Pressable>
           <Text style={styles.headerTitle}>Table {gameId.slice(0, 6).toUpperCase()}</Text>
-          <Pressable onPress={handleDeleteGame} style={styles.deleteButton}>
-            <Text style={styles.deleteButtonText}>Supprimer</Text>
-          </Pressable>
+          <View style={styles.headerSpacer} />
         </View>
 
         {currentRow ? (
@@ -1096,16 +1082,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'serif'
   },
-  deleteButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#7f1d1d'
-  },
-  deleteButtonText: {
-    color: '#fef2f2',
-    fontSize: 12,
-    fontWeight: '700'
+  headerSpacer: {
+    width: 64
   },
   tableGrid: {
     marginTop: 16,
