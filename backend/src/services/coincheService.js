@@ -1032,6 +1032,7 @@ async function applyAiForGame({ gameId, maxSteps = 6 }) {
     if (error) {
       return { data: null, error };
     }
+    const hasHuman = rows.some((row) => row.player_id);
     const activeRow = rows.find((row) => row.tour === 'tour');
     if (!activeRow) {
       return { data: rows, error: null };
@@ -1066,6 +1067,9 @@ async function applyAiForGame({ gameId, maxSteps = 6 }) {
           cardName: decision.card
         });
       } else if (decision.type === 'collect') {
+        if (hasHuman) {
+          return { data: rows, error: null };
+        }
         await writeAiLog({
           gameId,
           seat: activeRow.seat,

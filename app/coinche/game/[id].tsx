@@ -346,7 +346,6 @@ export default function GameScreen() {
   const prevRowsRef = useRef<any[]>([]);
   const revealTimeoutsRef = useRef<number[]>([]);
   const revealTokenRef = useRef(0);
-  const collectSeatRef = useRef<{ key: string; seat: number | null }>({ key: '', seat: null });
   const backendUrl = getBackendUrl();
   const wakeLock = useWakeLock();
 
@@ -585,21 +584,7 @@ export default function GameScreen() {
   }, [rows]);
 
   const winnerRow = rows.find((row) => row.resultat === 'gagnant') || null;
-  const trickKey = rows.map((row) => row.pli || '').join('|');
-  if (winnerRow && collectSeatRef.current.key !== trickKey) {
-    let seat: number | null = null;
-    if (winnerRow.player_id) {
-      seat = winnerRow.seat;
-    } else if (singleHumanSeat != null) {
-      seat = singleHumanSeat;
-    } else if (humanRows.length > 0) {
-      const pick = Math.floor(Math.random() * humanRows.length);
-      seat = humanRows[pick].seat;
-    }
-    collectSeatRef.current = { key: trickKey, seat };
-  }
-  const canCollectTrick =
-    !!currentRow && winnerRow && collectSeatRef.current.seat === currentRow.seat;
+  const canCollectTrick = !!currentRow?.player_id && !!winnerRow;
   const team1Belote = teams.team1.some((row) => (row.belote || 0) > 0);
   const team2Belote = teams.team2.some((row) => (row.belote || 0) > 0);
 
