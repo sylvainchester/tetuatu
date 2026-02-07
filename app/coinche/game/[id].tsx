@@ -585,8 +585,6 @@ export default function GameScreen() {
   }, [rows]);
 
   const winnerRow = rows.find((row) => row.resultat === 'gagnant') || null;
-  const humans = rows.filter((row) => row.player_id);
-  const singleHumanSeat = humans.length === 1 ? humans[0].seat : null;
   const trickKey = rows.map((row) => row.pli || '').join('|');
   if (winnerRow && collectSeatRef.current.key !== trickKey) {
     let seat: number | null = null;
@@ -594,9 +592,9 @@ export default function GameScreen() {
       seat = winnerRow.seat;
     } else if (singleHumanSeat != null) {
       seat = singleHumanSeat;
-    } else if (humans.length > 0) {
-      const pick = Math.floor(Math.random() * humans.length);
-      seat = humans[pick].seat;
+    } else if (humanRows.length > 0) {
+      const pick = Math.floor(Math.random() * humanRows.length);
+      seat = humanRows[pick].seat;
     }
     collectSeatRef.current = { key: trickKey, seat };
   }
