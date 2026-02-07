@@ -9,6 +9,7 @@ import {
   Text,
   View
 } from 'react-native';
+import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
 import { createGame, deleteGame, listGames } from '@/lib/api';
@@ -110,20 +111,32 @@ export default function CoincheHomeScreen() {
     router.replace('/');
   }
 
+  async function performDelete(gameId: string) {
+    setRequestError('');
+    try {
+      await deleteGame(gameId);
+      setGames((prev) => prev.filter((game) => game.id !== gameId));
+    } catch (err: any) {
+      setRequestError(err?.message || 'Erreur suppression');
+    }
+  }
+
   function handleDelete(gameId: string) {
-    Alert.alert('Supprimer la table ?', 'Cette action est definitive.', [
+    const title = 'Supprimer la table ?';
+    const message = 'Cette action est definitive.';
+    if (Platform.OS === 'web') {
+      if (globalThis.confirm?.(`${title}\n${message}`)) {
+        void performDelete(gameId);
+      }
+      return;
+    }
+    Alert.alert(title, message, [
       { text: 'Annuler', style: 'cancel' },
       {
         text: 'Supprimer',
         style: 'destructive',
-        onPress: async () => {
-          setRequestError('');
-          try {
-            await deleteGame(gameId);
-            setGames((prev) => prev.filter((game) => game.id !== gameId));
-          } catch (err: any) {
-            setRequestError(err?.message || 'Erreur suppression');
-          }
+        onPress: () => {
+          void performDelete(gameId);
         }
       }
     ]);
