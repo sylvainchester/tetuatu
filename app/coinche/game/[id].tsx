@@ -490,10 +490,22 @@ export default function GameScreen() {
     return { highest: max, passCount, closeSeat, passesAfterLastBid };
   }, [rows]);
   const highestBidValue = bidMeta.highest;
-  const closeBidPhase =
-    activeRow?.player_id === session?.user?.id &&
-    bidMeta.closeSeat != null &&
-    activeRow?.seat === bidMeta.closeSeat;
+  const closeBidTurn = bidMeta.closeSeat != null && activeRow?.seat === bidMeta.closeSeat;
+  const closeSeatRow = bidMeta.closeSeat != null ? rows.find((row) => row.seat === bidMeta.closeSeat) : undefined;
+  const humanRows = rows.filter((row) => row.player_id);
+  const singleHumanSeat = humanRows.length === 1 ? humanRows[0].seat : null;
+  const closeSeatPartner = bidMeta.closeSeat
+    ? bidMeta.closeSeat <= 2
+      ? bidMeta.closeSeat + 2
+      : bidMeta.closeSeat - 2
+    : null;
+  const canCloseBids =
+    closeBidTurn &&
+    !!currentRow &&
+    (singleHumanSeat === currentRow.seat ||
+      (closeSeatRow?.player_id
+        ? closeSeatRow.player_id === session?.user?.id
+        : closeSeatPartner != null && closeSeatPartner === currentRow.seat));
   const myLastBid = useMemo(() => {
     if (!currentRow) return '';
     return bidsById.get(currentRow.id) || '';
@@ -890,7 +902,7 @@ export default function GameScreen() {
               <View>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.pillRow}>
                   {CONTRACTS.filter((value) => {
-                    if (closeBidPhase && value === 'passe') {
+                    if (closeBidTurn && value === 'passe') {
                       return false;
                     }
                     return value === 'passe' || parseContractValue(value) > highestBidValue;
@@ -959,7 +971,7 @@ export default function GameScreen() {
                   >
                     <Text style={styles.primaryButtonText}>Valider</Text>
                   </Pressable>
-                  {closeBidPhase ? (
+                  {closeBidTurn ? (
                     <Pressable
                       style={styles.secondaryButtonCompact}
                       onPress={() => {
@@ -971,8 +983,7 @@ export default function GameScreen() {
                     </Pressable>
                   ) : null}
                 </View>
-                {activeRow?.player_id === session?.user?.id &&
-                closeBidPhase ? (
+                {canCloseBids ? (
                   <View style={styles.actionRowCompact}>
                     <Pressable style={styles.launchButton} onPress={() => handleCloseBids('lancer')}>
                       <Text style={styles.launchButtonText}>Lancer</Text>
