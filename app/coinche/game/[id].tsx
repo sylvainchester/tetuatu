@@ -332,6 +332,7 @@ export default function GameScreen() {
   const gameId = id as string;
   const insets = useSafeAreaInsets();
   const [rows, setRows] = useState<any[]>([]);
+  const [revealedPlis, setRevealedPlis] = useState<Record<number, boolean>>({});
   const [session, setSession] = useState<any>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -342,6 +343,10 @@ export default function GameScreen() {
   const loadInFlightRef = useRef(false);
   const lastLoadAtRef = useRef(0);
   const queuedLoadRef = useRef(false);
+  const prevRowsRef = useRef<any[]>([]);
+  const revealTimeoutsRef = useRef<number[]>([]);
+  const revealTokenRef = useRef(0);
+  const collectSeatRef = useRef<{ key: string; seat: number | null }>({ key: '', seat: null });
   const backendUrl = getBackendUrl();
   const wakeLock = useWakeLock();
 
@@ -418,6 +423,52 @@ export default function GameScreen() {
   useEffect(() => {
     loadGame();
   }, [gameId]);
+
+  useEffect(() => {
+    const prevRows = prevRowsRef.current;
+    prevRowsRef.current = rows;
+    if (!rows.length) return;
+
+    const prevBySeat = new Map(prevRows.map((row) => [row.seat, row]));
+    const newPlays = rows.filter((row) => row.pli && !(prevBySeat.get(row.seat)?.pli));
+    const hasAnyPli = rows.some((row) => row.pli);
+
+    revealTimeoutsRef.current.forEach((timeoutId) => clearTimeout(timeoutId));
+    revealTimeoutsRef.current = [];
+    revealTokenRef.current += 1;
+    const token = revealTokenRef.current;
+
+    if (!hasAnyPli) {
+      setRevealedPlis({});
+      return;
+    }
+
+    const baseReveal: Record<number, boolean> = {};
+    rows.forEach((row) => {
+      if (row.pli) {
+        baseReveal[row.seat] = true;
+      }
+    });
+
+    if (newPlays.length > 1 && newPlays.every((row) => !row.player_id)) {
+      newPlays.forEach((row) => {
+        baseReveal[row.seat] = false;
+      });
+      setRevealedPlis(baseReveal);
+
+      const ordered = [...newPlays].sort((a, b) => Number(a.dernier || 0) - Number(b.dernier || 0));
+      ordered.forEach((row, index) => {
+        const timeoutId = setTimeout(() => {
+          if (revealTokenRef.current !== token) return;
+          setRevealedPlis((prev) => ({ ...prev, [row.seat]: true }));
+        }, index * 500);
+        revealTimeoutsRef.current.push(timeoutId as unknown as number);
+      });
+      return;
+    }
+
+    setRevealedPlis(baseReveal);
+  }, [rows]);
 
   useEffect(() => {
     if (!backendUrl || !gameId) return;
@@ -514,7 +565,8 @@ export default function GameScreen() {
   const handOver = allSeatsFilled && rows.length > 0 && rows.every((row) => row.main === '00000000000000000000000000000000');
   const starterRow = rows.find((row) => row.tas && row.tas.includes('%'));
   const playedCards = rows.map((row) => {
-    const cardName = getCardNameFromPli(row.pli);
+    const isRevealed = revealedPlis[row.seat] ?? true;
+    const cardName = isRevealed ? getCardNameFromPli(row.pli) : null;
     return {
       seat: row.seat,
       cardName,
@@ -531,6 +583,25 @@ export default function GameScreen() {
     const team2 = rows.filter((row) => row.seat === 2 || row.seat === 4);
     return { team1, team2 };
   }, [rows]);
+
+  const winnerRow = rows.find((row) => row.resultat === 'gagnant') || null;
+  const humans = rows.filter((row) => row.player_id);
+  const singleHumanSeat = humans.length === 1 ? humans[0].seat : null;
+  const trickKey = rows.map((row) => row.pli || '').join('|');
+  if (winnerRow && collectSeatRef.current.key !== trickKey) {
+    let seat: number | null = null;
+    if (winnerRow.player_id) {
+      seat = winnerRow.seat;
+    } else if (singleHumanSeat != null) {
+      seat = singleHumanSeat;
+    } else if (humans.length > 0) {
+      const pick = Math.floor(Math.random() * humans.length);
+      seat = humans[pick].seat;
+    }
+    collectSeatRef.current = { key: trickKey, seat };
+  }
+  const canCollectTrick =
+    !!currentRow && winnerRow && collectSeatRef.current.seat === currentRow.seat;
   const team1Belote = teams.team1.some((row) => (row.belote || 0) > 0);
   const team2Belote = teams.team2.some((row) => (row.belote || 0) > 0);
 
@@ -1013,7 +1084,7 @@ export default function GameScreen() {
                     <Text style={styles.secondaryButtonText}>Annuler carte</Text>
                   </Pressable>
                 ) : null}
-                {currentRow?.resultat === 'gagnant' ? (
+                {canCollectTrick ? (
                   <>
                     <Pressable
                       style={styles.secondaryButtonCompact}
