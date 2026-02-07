@@ -176,17 +176,17 @@ export default function CoincheHomeScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
           renderItem={({ item }) => (
-            <Pressable style={styles.card} onPress={() => router.push(`/coinche/game/${item.id}`)}>
+            <View style={styles.card}>
               <View style={styles.cardRow}>
-                <View style={styles.cardInfo}>
+                <Pressable style={styles.cardInfo} onPress={() => router.push(`/coinche/game/${item.id}`)}>
                   <Text style={styles.cardTitle}>Table {item.id.slice(0, 6).toUpperCase()}</Text>
                   <Text style={styles.cardMeta}>Derniere action: {item.last_action_at || '---'}</Text>
-                </View>
+                </Pressable>
                 <Pressable style={styles.trashButton} onPress={() => handleDelete(item.id)}>
                   <Text style={styles.trashButtonText}>🗑</Text>
                 </Pressable>
               </View>
-            </Pressable>
+            </View>
           )}
           ListEmptyComponent={<Text style={styles.empty}>Aucune table active.</Text>}
         />
