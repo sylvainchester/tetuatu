@@ -234,6 +234,13 @@ export default function HubScreen() {
             <Text style={styles.cardActionText}>{impostorLoading ? 'Connexion...' : 'Entrer'}</Text>
           </View>
         </Pressable>
+        <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
+          <Text style={styles.cardTitle}>Francais</Text>
+          <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
+          <View style={styles.cardAction}>
+            <Text style={styles.cardActionText}>Entrer</Text>
+          </View>
+        </Pressable>
         {impostorError ? <Text style={styles.errorText}>{impostorError}</Text> : null}
       </View>
     </SafeAreaView>
@@ -381,6 +388,9 @@ const styles = StyleSheet.create({
   },
   cardAlt: {
     borderColor: '#312e81'
+  },
+  cardFrench: {
+    borderColor: '#065f46'
   },
   cardTitle: {
     fontSize: 22,
