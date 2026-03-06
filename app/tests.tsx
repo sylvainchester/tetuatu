@@ -27,6 +27,7 @@ import {
   type Test11Row,
   type Test9Row
 } from '@/lib/frenchTests';
+import { submitExerciseAttempt } from '@/lib/exerciseApi';
 
 const EXERCISES = [
   { id: 'test1', title: 'Conjugaison', subtitle: 'Verbes, temps, pronoms.' },
@@ -368,6 +369,8 @@ function Test1Exercise() {
   const [round, setRound] = useState<Test1Round | null>(null);
   const [answer, setAnswer] = useState('');
   const [result, setResult] = useState<{ ok: boolean; expected: string } | null>(null);
+  const [submitInfo, setSubmitInfo] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -461,9 +464,30 @@ function Test1Exercise() {
           <View style={styles.actionsRow}>
             <Pressable
               style={styles.primaryButton}
-              onPress={() => {
+              onPress={async () => {
                 const ok = normalizeAnswer(answer) === normalizeAnswer(round.expected);
                 setResult({ ok, expected: round.expected });
+                setSubmitInfo('');
+                setSubmitError('');
+                try {
+                  await submitExerciseAttempt({
+                    testId: 'test1',
+                    title: 'Conjugaison',
+                    summary: `${ok ? 'Correct' : 'Incorrect'} • ${round.verb} • ${round.tenseLabel}`,
+                    score: ok ? 1 : 0,
+                    payload: {
+                      verb: round.verb,
+                      tense: round.tenseLabel,
+                      person: round.personLabel,
+                      pronoun: round.pronoun,
+                      expected: round.expected,
+                      answer
+                    }
+                  });
+                  setSubmitInfo('Resultat envoye au prof.');
+                } catch (err: any) {
+                  setSubmitError(err.message || 'Envoi au prof impossible.');
+                }
               }}
             >
               <Text style={styles.primaryButtonText}>Verifier</Text>
@@ -479,6 +503,8 @@ function Test1Exercise() {
               {!result.ok ? <Text style={styles.feedbackText}>Attendu: {result.expected}</Text> : null}
             </View>
           ) : null}
+          {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -496,6 +522,8 @@ function Test9Exercise() {
   const [loading, setLoading] = useState(true);
   const [loadingRows, setLoadingRows] = useState(false);
   const [error, setError] = useState('');
+  const [submitInfo, setSubmitInfo] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -622,9 +650,34 @@ function Test9Exercise() {
           <View style={styles.actionsRow}>
             <Pressable
               style={styles.primaryButton}
-              onPress={() =>
-                setResult(parsed.answers.map((expected, index) => normalizeAnswer(expected) === normalizeAnswer(answers[index] || '')))
-              }
+              onPress={async () => {
+                const checks = parsed.answers.map(
+                  (expected, index) => normalizeAnswer(expected) === normalizeAnswer(answers[index] || '')
+                );
+                setResult(checks);
+                setSubmitInfo('');
+                setSubmitError('');
+                const score = checks.length ? checks.filter(Boolean).length / checks.length : 0;
+                try {
+                  await submitExerciseAttempt({
+                    testId: 'test9',
+                    title: 'Orthographe',
+                    summary: `${checks.filter(Boolean).length}/${checks.length} correct`,
+                    score,
+                    payload: {
+                      category: selectedCategory,
+                      title: parsed.title,
+                      preview: parsed.textPreview,
+                      expected: parsed.answers,
+                      answers,
+                      checks
+                    }
+                  });
+                  setSubmitInfo('Resultat envoye au prof.');
+                } catch (err: any) {
+                  setSubmitError(err.message || 'Envoi au prof impossible.');
+                }
+              }}
             >
               <Text style={styles.primaryButtonText}>Verifier</Text>
             </Pressable>
@@ -646,6 +699,8 @@ function Test9Exercise() {
               {row.lecon ? <Text style={styles.mutedSmall}>Lecon: {row.lecon}</Text> : null}
             </View>
           ) : null}
+          {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
     </View>
@@ -666,6 +721,9 @@ function Test10Exercise() {
   const [loadingList, setLoadingList] = useState(false);
   const [loadingDictation, setLoadingDictation] = useState(false);
   const [error, setError] = useState('');
+  const [attemptSent, setAttemptSent] = useState(false);
+  const [submitInfo, setSubmitInfo] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -723,6 +781,9 @@ function Test10Exercise() {
       setPhraseIndex(0);
       setTyped('');
       setAnswers([]);
+      setAttemptSent(false);
+      setSubmitInfo('');
+      setSubmitError('');
     } catch (err: any) {
       setError(err.message || 'Erreur ouverture dictee');
     } finally {
@@ -738,6 +799,38 @@ function Test10Exercise() {
     label: `${dictation.titre} (ref ${dictation.ref})`
   }));
   const levelOptions: DropdownOption[] = levels.map((level) => ({ label: level, value: level }));
+
+  useEffect(() => {
+    if (!finished || !current || !answers.length || attemptSent) return;
+    const exactCount = answers.filter((item) => item.exact).length;
+    const mistakes = answers.reduce((sum, item) => sum + item.mistakes, 0);
+    const score = answers.length ? exactCount / answers.length : 0;
+    setSubmitInfo('');
+    setSubmitError('');
+    submitExerciseAttempt({
+      testId: 'test10',
+      title: 'Dictee',
+      summary: `${exactCount}/${answers.length} exact • ${mistakes} faute(s)`,
+      score,
+      payload: {
+        ref: current.ref,
+        titre: current.titre,
+        niveau: current.niveau,
+        langue: current.langue,
+        exactCount,
+        mistakes,
+        answers
+      }
+    })
+      .then(() => {
+        setAttemptSent(true);
+        setSubmitInfo('Resultat envoye au prof.');
+      })
+      .catch((err: any) => {
+        setAttemptSent(true);
+        setSubmitError(err.message || 'Envoi au prof impossible.');
+      });
+  }, [finished, current, answers, attemptSent]);
 
   return (
     <View style={styles.exerciseSection}>
@@ -842,6 +935,8 @@ function Test10Exercise() {
                   Estimation fautes: {answers.reduce((sum, item) => sum + item.mistakes, 0)}
                 </Text>
               </View>
+              {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
+              {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
 
               {answers.map((item, index) => (
                 <View key={`t10-${index}`} style={styles.reviewCard}>
@@ -861,6 +956,9 @@ function Test10Exercise() {
                     setAnswers([]);
                     setPhraseIndex(0);
                     setTyped('');
+                    setAttemptSent(false);
+                    setSubmitInfo('');
+                    setSubmitError('');
                   }}
                 >
                   <Text style={styles.secondaryButtonText}>Retour aux dictees</Text>
@@ -886,6 +984,8 @@ function Test11Exercise() {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [loadingPrompts, setLoadingPrompts] = useState(false);
   const [error, setError] = useState('');
+  const [submitInfo, setSubmitInfo] = useState('');
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -938,6 +1038,8 @@ function Test11Exercise() {
     setCurrent(chosen);
     setText('');
     setSubmitted(false);
+    setSubmitInfo('');
+    setSubmitError('');
     setHistory((prev) => [...prev, chosen.question]);
   }
 
@@ -985,7 +1087,36 @@ function Test11Exercise() {
           </Text>
 
           <View style={styles.actionsRow}>
-            <Pressable style={[styles.primaryButton, !canSubmit && styles.buttonDisabled]} disabled={!canSubmit} onPress={() => setSubmitted(true)}>
+            <Pressable
+              style={[styles.primaryButton, !canSubmit && styles.buttonDisabled]}
+              disabled={!canSubmit}
+              onPress={async () => {
+                if (!current) return;
+                setSubmitted(true);
+                setSubmitInfo('');
+                setSubmitError('');
+                try {
+                  await submitExerciseAttempt({
+                    testId: 'test11',
+                    title: 'Redaction',
+                    summary: `${words} mots / min ${current.nombre_mots}`,
+                    score: current.nombre_mots > 0 ? Math.min(1, words / current.nombre_mots) : null,
+                    payload: {
+                      langue,
+                      categorie: current.categorie,
+                      niveau: current.niveau,
+                      question: current.question,
+                      minimumWords: current.nombre_mots,
+                      words,
+                      text
+                    }
+                  });
+                  setSubmitInfo('Resultat envoye au prof.');
+                } catch (err: any) {
+                  setSubmitError(err.message || 'Envoi au prof impossible.');
+                }
+              }}
+            >
               <Text style={styles.primaryButtonText}>Valider</Text>
             </Pressable>
             <Pressable style={styles.secondaryButton} onPress={nextPrompt}>
@@ -995,10 +1126,12 @@ function Test11Exercise() {
 
           {submitted ? (
             <View style={[styles.feedbackBox, styles.feedbackOk]}>
-              <Text style={styles.feedbackTitle}>Reponse enregistree (locale)</Text>
+              <Text style={styles.feedbackTitle}>Reponse enregistree</Text>
               <Text style={styles.feedbackText}>Commentaire legacy non reproduit ici pour le moment.</Text>
             </View>
           ) : null}
+          {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
+          {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
     </View>

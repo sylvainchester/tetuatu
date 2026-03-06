@@ -96,6 +96,7 @@ export default function RootLayout() {
         <Stack.Screen name="reset" options={{ headerShown: false }} />
         <Stack.Screen name="tests" options={{ headerShown: false }} />
         <Stack.Screen name="options" options={{ headerShown: false }} />
+        <Stack.Screen name="prof/dashboard" options={{ headerShown: false }} />
         <Stack.Screen name="coinche/index" options={{ headerShown: false }} />
         <Stack.Screen name="coinche/game/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="impostor/lobby" options={{ headerShown: false }} />

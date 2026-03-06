@@ -135,6 +135,9 @@ export default function OptionsScreen() {
             <Pressable style={[styles.button, saving && styles.buttonDisabled]} disabled={saving} onPress={handleAddStudent}>
               <Text style={styles.buttonText}>{saving ? 'Ajout...' : 'Ajouter a ma whitelist'}</Text>
             </Pressable>
+            <Pressable style={styles.dashboardButton} onPress={() => router.push('/prof/dashboard')}>
+              <Text style={styles.dashboardButtonText}>Ouvrir dashboard prof</Text>
+            </Pressable>
           </View>
         ) : null}
 
@@ -240,6 +243,17 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#052e16',
+    fontWeight: '700'
+  },
+  dashboardButton: {
+    marginTop: 6,
+    backgroundColor: '#1e40af',
+    paddingVertical: 11,
+    borderRadius: 12,
+    alignItems: 'center'
+  },
+  dashboardButtonText: {
+    color: '#dbeafe',
     fontWeight: '700'
   },
   studentRow: {

@@ -1,4 +1,5 @@
 import { useGameStore } from '@/store/impostor/useGameStore';
+import { fetchWhitelistByEmail } from '@/lib/accessControl';
 import { ensureProfileUsername } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -33,6 +34,9 @@ export default function LobbyScreen() {
     ensureUser
   } = useGameStore();
   const [sessionChecked, setSessionChecked] = useState(false);
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [authEmail, setAuthEmail] = useState('');
   const [isRegisteringPush, setIsRegisteringPush] = useState(false);
   const [initError, setInitError] = useState('');
 
@@ -42,6 +46,7 @@ export default function LobbyScreen() {
         setSessionChecked(true);
         return;
       }
+      setAuthEmail(data.session.user.email || '');
       ensureProfileUsername(data.session.user)
         .then((name) => ensureUser(name))
         .then((ok) => {
@@ -54,9 +59,11 @@ export default function LobbyScreen() {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (!nextSession) {
+        setAuthEmail('');
         setSessionChecked(true);
         return;
       }
+      setAuthEmail(nextSession.user.email || '');
       ensureProfileUsername(nextSession.user)
         .then((name) => ensureUser(name))
         .then((ok) => {
@@ -73,14 +80,28 @@ export default function LobbyScreen() {
   }, [ensureUser]);
 
   useEffect(() => {
-    if (!sessionChecked) return;
+    if (!sessionChecked || !authEmail) return;
+    fetchWhitelistByEmail(authEmail)
+      .then((access) => {
+        if (!access || access.role === 'eleve') {
+          setAccessDenied(true);
+          router.replace('/');
+          return;
+        }
+        setAccessDenied(false);
+      })
+      .finally(() => setAccessChecked(true));
+  }, [sessionChecked, authEmail, router]);
+
+  useEffect(() => {
+    if (!sessionChecked || !accessChecked) return;
     if (!user) {
       router.replace('/');
     }
-  }, [sessionChecked, user, router]);
+  }, [sessionChecked, accessChecked, user, router]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !accessChecked || accessDenied) return;
     fetchGames();
     fetchScoreboard();
 
@@ -101,7 +122,7 @@ export default function LobbyScreen() {
       pusher.unsubscribe('lobby');
       pusher.disconnect();
     };
-  }, [user, fetchGames, fetchScoreboard]);
+  }, [user, accessChecked, accessDenied, fetchGames, fetchScoreboard]);
 
   const handleCreateGame = async () => {
     const gameId = await createGame();
@@ -169,7 +190,7 @@ export default function LobbyScreen() {
     );
   };
 
-  if (!sessionChecked || !user) {
+  if (!sessionChecked || !accessChecked || !user) {
     return (
       <View style={styles.outerContainer}>
         <ActivityIndicator size="large" color="#e94560" />
