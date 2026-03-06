@@ -1,7 +1,8 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-import { getImpostorApiBase, getImpostorAuthHeaders } from '@/lib/impostor/api';
+import { getImpostorAuthHeaders } from '@/lib/impostor/api';
+import { getPushApiBase } from '@/lib/pushApi';
 
 function urlBase64ToUint8Array(base64String: string) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -29,7 +30,7 @@ export default async function registerForWebPushAsync() {
 
     let subscription = existing;
     if (!subscription) {
-        const apiUrl = getImpostorApiBase();
+        const apiUrl = getPushApiBase();
         if (!apiUrl) return null;
         const { data } = await axios.get(`${apiUrl}/push/vapid-public-key`);
         const publicKey = data?.publicKey;
@@ -42,7 +43,7 @@ export default async function registerForWebPushAsync() {
     }
 
     if (subscription) {
-        const apiUrl = getImpostorApiBase();
+        const apiUrl = getPushApiBase();
         if (!apiUrl) return null;
         const headers = await getImpostorAuthHeaders();
         if (!headers) return null;

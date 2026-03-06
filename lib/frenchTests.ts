@@ -72,6 +72,49 @@ export type Test11Row = {
   commentaire: string;
 };
 
+function clean(value: string | null | undefined) {
+  return (value || '').trim();
+}
+
+function buildTest10FromRows(ref: string, rows: Test10Row[], wantedLangue?: 'FR' | 'EN', wantedNiveau?: string) {
+  const header =
+    rows.find((row) => {
+      const rowLangue = clean(row.langue).toUpperCase();
+      const rowNiveau = clean(row.niveau);
+      if (wantedLangue && rowLangue !== wantedLangue) return false;
+      if (wantedNiveau && rowNiveau !== wantedNiveau) return false;
+      return rowLangue.length > 0;
+    }) ||
+    rows.find((row) => clean(row.langue).length > 0) ||
+    rows[0];
+
+  const baseLangue = clean(header.langue).toUpperCase();
+  const baseNiveau = clean(header.niveau);
+
+  const scopedRows = rows.filter((row) => {
+    const rowLangue = clean(row.langue).toUpperCase();
+    const rowNiveau = clean(row.niveau);
+    const keepLangue = rowLangue.length === 0 || rowLangue === baseLangue;
+    const keepNiveau = rowNiveau.length === 0 || rowNiveau === baseNiveau;
+    return keepLangue && keepNiveau;
+  });
+
+  const title =
+    clean(header.titre) ||
+    clean(scopedRows.find((row) => clean(row.titre).length > 0)?.titre) ||
+    `Dictee ${ref}`;
+
+  const phrases = scopedRows.map((row) => clean(row.phrase)).filter(Boolean);
+
+  return {
+    ref,
+    titre: title,
+    langue: baseLangue || clean(wantedLangue),
+    niveau: baseNiveau || clean(wantedNiveau),
+    phrases
+  } as Test10Dictation;
+}
+
 function throwIfError(error: { message?: string } | null) {
   if (error) {
     throw new Error(error.message || 'supabase_error');
@@ -116,56 +159,40 @@ export async function fetchTest10Levels(langue: 'FR' | 'EN') {
 }
 
 export async function fetchTest10Dictations(langue: 'FR' | 'EN', niveau?: string) {
-  let query = supabase
+  const { data, error } = await supabase
     .from('reponse_test10')
     .select('*')
-    .eq('langue', langue)
     .order('ref', { ascending: true })
     .order('id', { ascending: true });
-  if (niveau) {
-    query = query.eq('niveau', niveau);
-  }
-  const { data, error } = await query;
   throwIfError(error);
 
-  const grouped = new Map<string, Test10Dictation>();
+  const grouped = new Map<string, Test10Row[]>();
   for (const row of (data || []) as Test10Row[]) {
-    const current = grouped.get(row.ref);
-    const title = row.titre?.trim() || current?.titre || `Dictee ${row.ref}`;
-    if (!current) {
-      grouped.set(row.ref, {
-        ref: row.ref,
-        titre: title,
-        langue: row.langue,
-        niveau: row.niveau,
-        phrases: row.phrase ? [row.phrase] : []
-      });
-      continue;
-    }
-    current.titre = title;
-    if (row.phrase) current.phrases.push(row.phrase);
+    if (!grouped.has(row.ref)) grouped.set(row.ref, []);
+    grouped.get(row.ref)!.push(row);
   }
-  return [...grouped.values()];
+
+  const dictations: Test10Dictation[] = [];
+  for (const [ref, rows] of grouped) {
+    const hasHeaderForFilter = rows.some((row) => {
+      const rowLangue = clean(row.langue).toUpperCase();
+      const rowNiveau = clean(row.niveau);
+      if (rowLangue !== langue) return false;
+      if (niveau && rowNiveau !== niveau) return false;
+      return true;
+    });
+    if (!hasHeaderForFilter) continue;
+    dictations.push(buildTest10FromRows(ref, rows, langue, niveau));
+  }
+  return dictations;
 }
 
-export async function fetchTest10DictationByRef(ref: string, langue?: 'FR' | 'EN') {
-  let query = supabase.from('reponse_test10').select('*').eq('ref', ref).order('id', { ascending: true });
-  if (langue) {
-    query = query.eq('langue', langue);
-  }
-  const { data, error } = await query;
+export async function fetchTest10DictationByRef(ref: string, langue?: 'FR' | 'EN', niveau?: string) {
+  const { data, error } = await supabase.from('reponse_test10').select('*').eq('ref', ref).order('id', { ascending: true });
   throwIfError(error);
   const rows = (data || []) as Test10Row[];
   if (!rows.length) return null;
-  const firstWithTitle = rows.find((row) => row.titre?.trim());
-  const first = rows[0];
-  return {
-    ref,
-    titre: firstWithTitle?.titre?.trim() || `Dictee ${ref}`,
-    langue: first.langue,
-    niveau: first.niveau,
-    phrases: rows.map((row) => row.phrase).filter(Boolean)
-  } as Test10Dictation;
+  return buildTest10FromRows(ref, rows, langue, niveau);
 }
 
 export async function fetchTest11Categories(langue: 'fr' | 'en') {

@@ -279,12 +279,15 @@ function SimpleDropdown({
             onChange: (event: any) => onChange(event.target.value),
             style: {
               width: '100%',
-              border: '1px solid #334155',
+              borderWidth: '1px',
+              borderStyle: 'solid',
+              borderColor: '#334155',
               borderRadius: '12px',
-              background: '#0f172a',
+              backgroundColor: '#0f172a',
               color: '#f8fafc',
               padding: '10px 12px',
-              fontSize: '14px'
+              fontSize: '14px',
+              appearance: 'none'
             }
           },
           options.map((option) =>
@@ -650,7 +653,7 @@ function Test9Exercise() {
 }
 
 function Test10Exercise() {
-  const [langue, setLangue] = useState<'FR' | 'EN'>('FR');
+  const langue: 'FR' | 'EN' = 'FR';
   const [levels, setLevels] = useState<string[]>([]);
   const [niveau, setNiveau] = useState('');
   const [dictations, setDictations] = useState<Test10Dictation[]>([]);
@@ -711,7 +714,7 @@ function Test10Exercise() {
     setLoadingDictation(true);
     setError('');
     try {
-      const dictation = await fetchTest10DictationByRef(ref, langue);
+      const dictation = await fetchTest10DictationByRef(ref, langue, niveau);
       if (!dictation) {
         setError('Dictee introuvable');
         return;
@@ -734,23 +737,12 @@ function Test10Exercise() {
     value: dictation.ref,
     label: `${dictation.titre} (ref ${dictation.ref})`
   }));
-  const languageOptions: DropdownOption[] = [
-    { label: 'FR', value: 'FR' },
-    { label: 'EN', value: 'EN' }
-  ];
   const levelOptions: DropdownOption[] = levels.map((level) => ({ label: level, value: level }));
 
   return (
     <View style={styles.exerciseSection}>
-      <Text style={styles.sectionTitle}>Parametres</Text>
       <View style={styles.block}>
         <View style={styles.inlineFields}>
-          <SimpleDropdown
-            label="Langue"
-            options={languageOptions}
-            value={langue}
-            onChange={(value) => setLangue(value as 'FR' | 'EN')}
-          />
           <SimpleDropdown
             label="Niveau"
             options={levelOptions}
@@ -762,7 +754,6 @@ function Test10Exercise() {
       </View>
 
       <View style={styles.block}>
-        <Text style={styles.sectionTitle}>Dictees disponibles</Text>
         {dictations.length ? (
           <SimpleDropdown
             label="Choisir une dictee"

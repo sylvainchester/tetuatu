@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Pressable, SafeAreaView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
+import * as Linking from 'expo-linking';
 
 import { supabase } from '@/lib/supabase';
 
@@ -11,12 +12,35 @@ export default function ResetScreen() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    function readAuthParamsFromUrl(rawUrl: string | null) {
+      if (!rawUrl) return new URLSearchParams('');
+      const fragment = rawUrl.split('#')[1] || '';
+      const query = rawUrl.split('?')[1] || '';
+      const raw = fragment || query;
+      return new URLSearchParams(raw);
+    }
+
+    async function checkResetContext() {
+      const webUrl =
+        typeof window !== 'undefined' && typeof window.location?.href === 'string'
+          ? window.location.href
+          : null;
+      const url = webUrl || (await Linking.getInitialURL());
+      const params = readAuthParamsFromUrl(url);
+      const type = params.get('type') || '';
+      if (type !== 'recovery') {
+        router.replace('/');
+        return;
+      }
+
+      const { data } = await supabase.auth.getSession();
       if (!data.session) {
         setError('Lien invalide ou expire.');
       }
       setReady(true);
-    });
+    }
+
+    checkResetContext();
   }, []);
 
   async function handleReset() {

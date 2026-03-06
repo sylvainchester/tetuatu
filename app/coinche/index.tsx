@@ -12,6 +12,7 @@ import {
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 
+import { fetchWhitelistByEmail } from '@/lib/accessControl';
 import { createGame, deleteGame, listGames } from '@/lib/api';
 import { getBackendUrl } from '@/lib/backend';
 import { ensureProfileUsername } from '@/lib/profile';
@@ -23,6 +24,8 @@ export default function CoincheHomeScreen() {
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [requestError, setRequestError] = useState('');
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const backendUrl = getBackendUrl();
 
   function deriveWsUrl(baseUrl: string) {
@@ -56,7 +59,22 @@ export default function CoincheHomeScreen() {
       router.replace('/');
       return;
     }
-    ensureProfileUsername(session.user);
+    ensureProfileUsername(session.user)
+      .then(async () => {
+        if (!session.user.email) {
+          setAccessDenied(true);
+          router.replace('/');
+          return;
+        }
+        const access = await fetchWhitelistByEmail(session.user.email);
+        if (!access || access.role === 'eleve') {
+          setAccessDenied(true);
+          router.replace('/');
+          return;
+        }
+        setAccessDenied(false);
+      })
+      .finally(() => setAccessChecked(true));
   }, [sessionChecked, session]);
 
   async function loadGames() {
@@ -74,19 +92,19 @@ export default function CoincheHomeScreen() {
   }
 
   useEffect(() => {
-    if (session) {
+    if (session && accessChecked && !accessDenied) {
       loadGames();
     }
-  }, [session]);
+  }, [session, accessChecked, accessDenied]);
 
   useEffect(() => {
-    if (!session || !backendUrl) return;
+    if (!session || !backendUrl || !accessChecked || accessDenied) return;
     const ws = new WebSocket(deriveWsUrl(backendUrl));
     ws.onmessage = () => {
       loadGames();
     };
     return () => ws.close();
-  }, [session, backendUrl]);
+  }, [session, backendUrl, accessChecked, accessDenied]);
 
   async function handleCreate() {
     setLoading(true);
@@ -142,7 +160,7 @@ export default function CoincheHomeScreen() {
     ]);
   }
 
-  if (!sessionChecked || !session) {
+  if (!sessionChecked || !session || !accessChecked) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.loader}>

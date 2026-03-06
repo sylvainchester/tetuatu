@@ -7,8 +7,9 @@ import { Platform } from 'react-native';
 import 'react-native-reanimated';
 import axios from 'axios';
 
-import { getImpostorApiBase, getImpostorAuthHeaders } from '@/lib/impostor/api';
+import { getImpostorAuthHeaders } from '@/lib/impostor/api';
 import registerForPushNotificationsAsync from '@/lib/impostor/registerForPushNotificationsAsync';
+import { getPushApiBase } from '@/lib/pushApi';
 import { useGameStore } from '@/store/impostor/useGameStore';
 
 export const unstable_settings = {
@@ -67,7 +68,7 @@ export default function RootLayout() {
   }, [setPushToken]);
 
   useEffect(() => {
-    const apiUrl = getImpostorApiBase();
+    const apiUrl = getPushApiBase();
     if (!apiUrl || !user || !pushToken) {
       return;
     }
@@ -93,6 +94,8 @@ export default function RootLayout() {
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="reset" options={{ headerShown: false }} />
+        <Stack.Screen name="tests" options={{ headerShown: false }} />
+        <Stack.Screen name="options" options={{ headerShown: false }} />
         <Stack.Screen name="coinche/index" options={{ headerShown: false }} />
         <Stack.Screen name="coinche/game/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="impostor/lobby" options={{ headerShown: false }} />

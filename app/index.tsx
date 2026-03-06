@@ -10,6 +10,7 @@ import {
 import { router } from 'expo-router';
 import * as Linking from 'expo-linking';
 
+import { fetchWhitelistByEmail } from '@/lib/accessControl';
 import { ensureProfileUsername } from '@/lib/profile';
 import { supabase } from '@/lib/supabase';
 import { useGameStore } from '@/store/impostor/useGameStore';
@@ -25,7 +26,10 @@ export default function HubScreen() {
   const [form, setForm] = useState(initialForm);
   const [isRegister, setIsRegister] = useState(false);
   const [authError, setAuthError] = useState('');
+  const [authInfo, setAuthInfo] = useState('');
   const [profileName, setProfileName] = useState('');
+  const [accessRole, setAccessRole] = useState<'admin' | 'eleve' | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const { ensureUser, logout: logoutImpostor, isLoading: impostorLoading, error: impostorError } = useGameStore();
 
   useEffect(() => {
@@ -49,12 +53,20 @@ export default function HubScreen() {
       const params = new URLSearchParams(raw);
       const accessToken = params.get('access_token');
       const refreshToken = params.get('refresh_token');
+      const type = params.get('type') || '';
       if (accessToken && refreshToken) {
         await supabase.auth.setSession({
           access_token: accessToken,
           refresh_token: refreshToken
         });
-        router.replace('/reset');
+        if (type === 'recovery') {
+          router.replace('/reset');
+        } else {
+          router.replace('/');
+          if (type === 'signup') {
+            setAuthInfo('Email confirme. Tu peux te connecter.');
+          }
+        }
       }
     }
 
@@ -70,24 +82,49 @@ export default function HubScreen() {
   useEffect(() => {
     if (!session?.user) {
       setProfileName('');
+      setAccessRole(null);
       return;
     }
-    ensureProfileUsername(session.user).then((name) => setProfileName(name));
-  }, [session]);
+    Promise.all([
+      ensureProfileUsername(session.user),
+      session.user.email ? fetchWhitelistByEmail(session.user.email) : Promise.resolve(null)
+    ])
+      .then(async ([name, access]) => {
+        setProfileName(name);
+        if (!access) {
+          await supabase.auth.signOut();
+          await logoutImpostor();
+          setAuthError('Acces refuse: email non whitelist.');
+          return;
+        }
+        setAccessRole(access.role);
+      })
+      .catch((err: any) => setAuthError(err.message || 'Erreur verification acces.'));
+  }, [session, logoutImpostor]);
 
-  const usernameLabel = useMemo(() => (isRegister ? 'Pseudo' : 'Pseudo (facultatif)'), [isRegister]);
+  const usernameLabel = useMemo(() => 'Pseudo', []);
 
   async function handleAuth() {
     setAuthError('');
+    setAuthInfo('');
     try {
       if (isRegister) {
+        const username = form.username.trim();
+        if (!username) {
+          setAuthError('Pseudo requis pour creer un compte.');
+          return;
+        }
         const { data, error } = await supabase.auth.signUp({
           email: form.email,
-          password: form.password
+          password: form.password,
+          options: {
+            data: { username }
+          }
         });
         if (error) throw error;
-        if (data.user) {
-          await ensureProfileUsername(data.user, form.username);
+        setAuthInfo('Compte cree. Verifie ton email pour confirmer ton inscription.');
+        if (data.session) {
+          await supabase.auth.signOut();
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -107,6 +144,7 @@ export default function HubScreen() {
 
   async function handleRecovery() {
     setAuthError('');
+    setAuthInfo('');
     if (!form.email.trim()) {
       setAuthError('Email requis pour le reset.');
       return;
@@ -115,13 +153,14 @@ export default function HubScreen() {
       const redirectTo = Linking.createURL('/reset');
       const { error } = await supabase.auth.resetPasswordForEmail(form.email, { redirectTo });
       if (error) throw error;
-      setAuthError('Email de reinitialisation envoye.');
+      setAuthInfo('Email de reinitialisation envoye.');
     } catch (err: any) {
       setAuthError(err.message || 'Erreur recovery');
     }
   }
 
   async function handleSignOut() {
+    setMenuOpen(false);
     await supabase.auth.signOut();
     await logoutImpostor();
   }
@@ -173,18 +212,21 @@ export default function HubScreen() {
             />
           </View>
 
-          <View style={styles.authField}>
-            <Text style={styles.authLabel}>{usernameLabel}</Text>
-            <TextInput
-              value={form.username}
-              onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
-              style={styles.authInput}
-              placeholder="Ton pseudo"
-              placeholderTextColor="#6f7a87"
-            />
-          </View>
+          {isRegister ? (
+            <View style={styles.authField}>
+              <Text style={styles.authLabel}>{usernameLabel}</Text>
+              <TextInput
+                value={form.username}
+                onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
+                style={styles.authInput}
+                placeholder="Ton pseudo"
+                placeholderTextColor="#6f7a87"
+              />
+            </View>
+          ) : null}
 
           {authError ? <Text style={styles.authError}>{authError}</Text> : null}
+          {authInfo ? <Text style={styles.authInfo}>{authInfo}</Text> : null}
 
           <Pressable style={styles.authButton} onPress={handleAuth}>
             <Text style={styles.authButtonText}>{isRegister ? 'Creer un compte' : 'Connexion'}</Text>
@@ -194,7 +236,13 @@ export default function HubScreen() {
               <Text style={styles.authRecovery}>Mot de passe oublie ?</Text>
             </Pressable>
           ) : null}
-          <Pressable onPress={() => setIsRegister((prev) => !prev)}>
+          <Pressable
+            onPress={() => {
+              setIsRegister((prev) => !prev);
+              setAuthError('');
+              setAuthInfo('');
+            }}
+          >
             <Text style={styles.authToggle}>
               {isRegister ? 'Deja un compte ? Se connecter' : 'Pas de compte ? S inscrire'}
             </Text>
@@ -212,28 +260,55 @@ export default function HubScreen() {
       <View style={styles.hubHeader}>
         <View>
           <Text style={styles.hubTitle}>Salut {profileName || 'joueur'}.</Text>
-          <Text style={styles.hubSubtitle}>Choisis ton terrain de jeu.</Text>
+          <Text style={styles.hubSubtitle}>
+            Choisis ton terrain de jeu. {accessRole ? `Role: ${accessRole}.` : ''}
+          </Text>
         </View>
-        <Pressable style={styles.logout} onPress={handleSignOut}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </Pressable>
+        <View style={styles.menuWrapper}>
+          <Pressable style={styles.menuButton} onPress={() => setMenuOpen((prev) => !prev)}>
+            <View style={styles.menuLine} />
+            <View style={styles.menuLine} />
+            <View style={styles.menuLine} />
+            <View style={styles.menuLine} />
+          </Pressable>
+          {menuOpen ? (
+            <View style={styles.menuPanel}>
+              <Pressable
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  router.push('/options');
+                }}
+              >
+                <Text style={styles.menuItemText}>Options</Text>
+              </Pressable>
+              <Pressable style={styles.menuItem} onPress={handleSignOut}>
+                <Text style={styles.menuItemText}>Logout</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.hubGrid}>
-        <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
-          <Text style={styles.cardTitle}>Coinche</Text>
-          <Text style={styles.cardMeta}>Tables rapides, robots prets.</Text>
-          <View style={styles.cardAction}>
-            <Text style={styles.cardActionText}>Entrer</Text>
-          </View>
-        </Pressable>
-        <Pressable style={[styles.card, styles.cardAlt]} onPress={handleEnterImpostor}>
-          <Text style={styles.cardTitle}>Imposteur</Text>
-          <Text style={styles.cardMeta}>Parties bluff, votes, score.</Text>
-          <View style={styles.cardAction}>
-            <Text style={styles.cardActionText}>{impostorLoading ? 'Connexion...' : 'Entrer'}</Text>
-          </View>
-        </Pressable>
+        {accessRole !== 'eleve' ? (
+          <>
+            <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
+              <Text style={styles.cardTitle}>Coinche</Text>
+              <Text style={styles.cardMeta}>Tables rapides, robots prets.</Text>
+              <View style={styles.cardAction}>
+                <Text style={styles.cardActionText}>Entrer</Text>
+              </View>
+            </Pressable>
+            <Pressable style={[styles.card, styles.cardAlt]} onPress={handleEnterImpostor}>
+              <Text style={styles.cardTitle}>Imposteur</Text>
+              <Text style={styles.cardMeta}>Parties bluff, votes, score.</Text>
+              <View style={styles.cardAction}>
+                <Text style={styles.cardActionText}>{impostorLoading ? 'Connexion...' : 'Entrer'}</Text>
+              </View>
+            </Pressable>
+          </>
+        ) : null}
         <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
           <Text style={styles.cardTitle}>Francais</Text>
           <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
@@ -309,6 +384,10 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: '#fca5a5'
   },
+  authInfo: {
+    marginTop: 12,
+    color: '#93c5fd'
+  },
   authButton: {
     marginTop: 18,
     backgroundColor: '#f59e0b',
@@ -353,7 +432,13 @@ const styles = StyleSheet.create({
     paddingTop: 28,
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center'
+    alignItems: 'center',
+    zIndex: 50,
+    elevation: 50
+  },
+  menuWrapper: {
+    position: 'relative',
+    zIndex: 60
   },
   hubTitle: {
     fontSize: 28,
@@ -364,20 +449,50 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: '#94a3b8'
   },
-  logout: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#111827'
+  menuButton: {
+    width: 38,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#24304f',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 3
   },
-  logoutText: {
+  menuLine: {
+    width: 16,
+    height: 2,
+    borderRadius: 2,
+    backgroundColor: '#e2e8f0'
+  },
+  menuPanel: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    width: 140,
+    borderRadius: 12,
+    backgroundColor: '#111827',
+    borderWidth: 1,
+    borderColor: '#24304f',
+    overflow: 'hidden',
+    zIndex: 20
+  },
+  menuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#1f2937'
+  },
+  menuItemText: {
     color: '#f8fafc',
-    fontSize: 12
+    fontSize: 13
   },
   hubGrid: {
     marginTop: 24,
     paddingHorizontal: 24,
-    gap: 16
+    gap: 16,
+    zIndex: 1
   },
   card: {
     backgroundColor: '#111827',
