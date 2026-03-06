@@ -6,8 +6,11 @@ const {
   supabaseAdmin
 } = require('../_lib/common');
 const { sendPushToUsers } = require('../_lib/pushSender');
+const { applyCors, handlePreflight } = require('../_lib/cors');
 
 module.exports = async function handler(req, res) {
+  if (handlePreflight(req, res)) return;
+  applyCors(req, res);
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
 
   const { user, error: authError } = await getUserFromRequest(req);
@@ -34,8 +37,26 @@ module.exports = async function handler(req, res) {
   const whitelist = (whitelistRows || [])[0];
   if (!whitelist) return json(res, 403, { error: 'not_student_or_not_whitelisted' });
 
-  const teacherUserId = whitelist.added_by || null;
+  let teacherUserId = whitelist.added_by || null;
   const teacherEmail = (whitelist.teacher_email || '').toLowerCase() || null;
+  if (!teacherUserId && teacherEmail) {
+    try {
+      const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+        page: 1,
+        perPage: 1000
+      });
+      if (!usersError) {
+        const found = (usersData?.users || []).find(
+          (candidate) => String(candidate.email || '').toLowerCase() === teacherEmail
+        );
+        if (found?.id) {
+          teacherUserId = found.id;
+        }
+      }
+    } catch (_err) {
+      // Keep nullable teacher_user_id, teacher_email fallback remains available for dashboard.
+    }
+  }
 
   const attemptPayload = {
     student_user_id: user.id,

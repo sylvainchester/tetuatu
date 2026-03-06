@@ -46,3 +46,4 @@ backend/.env
 
 .env
 backend/.env
+.vercel

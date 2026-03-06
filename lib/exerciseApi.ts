@@ -17,6 +17,10 @@ async function request(path: string, init: RequestInit = {}) {
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
   const response = await fetch(`${base}${path}`, { ...init, headers });
+  const contentType = response.headers.get('content-type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('api_not_reached_non_json_response');
+  }
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw new Error(payload.error || `request_failed_${response.status}`);

@@ -4,8 +4,11 @@ const {
   methodNotAllowed,
   supabaseAdmin
 } = require('../_lib/common');
+const { applyCors, handlePreflight } = require('../_lib/cors');
 
 module.exports = async function handler(req, res) {
+  if (handlePreflight(req, res)) return;
+  applyCors(req, res);
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
 
   const { user, error: authError } = await getUserFromRequest(req);
@@ -22,12 +25,13 @@ module.exports = async function handler(req, res) {
     .limit(1);
   if (adminError) return json(res, 500, { error: adminError.message || 'admin_lookup_failed' });
   if (!(adminRows || []).length) return json(res, 403, { error: 'not_admin' });
+  const adminEmail = String(user.email || '').toLowerCase();
 
   const { data, error } = await supabaseAdmin
     .from('exercise_attempts')
     .select('*')
     .eq('id', id)
-    .eq('teacher_user_id', user.id)
+    .or(`teacher_user_id.eq.${user.id},teacher_email.eq.${adminEmail}`)
     .limit(1);
   if (error) return json(res, 500, { error: error.message || 'attempt_lookup_failed' });
   const row = (data || [])[0] || null;
