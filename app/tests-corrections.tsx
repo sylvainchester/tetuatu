@@ -331,6 +331,8 @@ export default function StudentCorrectionsScreen() {
                       style={[styles.input, styles.textArea, styles.readOnlyInput]}
                       placeholder="(vide)"
                       placeholderTextColor="#64748b"
+                      autoCorrect={false}
+                      spellCheck={false}
                     />
 
                     <Text style={styles.label}>Commentaire du prof</Text>
@@ -341,6 +343,8 @@ export default function StudentCorrectionsScreen() {
                       style={[styles.input, styles.readOnlyInput]}
                       placeholder="Aucun commentaire"
                       placeholderTextColor="#64748b"
+                      autoCorrect={false}
+                      spellCheck={false}
                     />
 
                     <Text style={styles.label}>Nouvelle version</Text>
@@ -380,6 +384,8 @@ export default function StudentCorrectionsScreen() {
                     placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
                     placeholderTextColor="#64748b"
                     editable={!submittedOnce}
+                    autoCorrect={false}
+                    spellCheck={false}
                   />
                 )}
                 {selected?.test_id === 'test11' ? (

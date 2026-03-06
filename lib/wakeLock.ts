@@ -1,3 +1,5 @@
+import { useCallback, useRef } from 'react';
+
 let wakeLock: WakeLockSentinel | null = null;
 
 async function requestWakeLock() {
@@ -6,7 +8,7 @@ async function requestWakeLock() {
   try {
     // @ts-expect-error Wake Lock is not in TS lib yet.
     wakeLock = await navigator.wakeLock.request('screen');
-  } catch (_err) {
+  } catch {
     // Ignore failures (unsupported or denied).
   }
 }
@@ -19,26 +21,30 @@ function releaseWakeLock() {
 }
 
 export function useWakeLock() {
-  let onVisibilityChange: (() => void) | null = null;
+  const onVisibilityChangeRef = useRef<(() => void) | null>(null);
 
-  const enable = () => {
+  const enable = useCallback(() => {
     requestWakeLock();
     if (typeof document === 'undefined') return;
-    onVisibilityChange = () => {
+    const currentHandler = onVisibilityChangeRef.current;
+    if (currentHandler) {
+      document.removeEventListener('visibilitychange', currentHandler);
+    }
+    onVisibilityChangeRef.current = () => {
       if (document.visibilityState === 'visible') {
         requestWakeLock();
       }
     };
-    document.addEventListener('visibilitychange', onVisibilityChange);
-  };
+    document.addEventListener('visibilitychange', onVisibilityChangeRef.current);
+  }, []);
 
-  const disable = () => {
-    if (typeof document !== 'undefined' && onVisibilityChange) {
-      document.removeEventListener('visibilitychange', onVisibilityChange);
+  const disable = useCallback(() => {
+    if (typeof document !== 'undefined' && onVisibilityChangeRef.current) {
+      document.removeEventListener('visibilitychange', onVisibilityChangeRef.current);
     }
     releaseWakeLock();
-    onVisibilityChange = null;
-  };
+    onVisibilityChangeRef.current = null;
+  }, []);
 
   return { enable, disable };
 }

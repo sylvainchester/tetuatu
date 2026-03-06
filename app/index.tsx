@@ -194,6 +194,8 @@ export default function HubScreen() {
             <Text style={styles.authLabel}>Email</Text>
             <TextInput
               autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
               keyboardType="email-address"
               value={form.email}
               onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
@@ -207,6 +209,8 @@ export default function HubScreen() {
             <Text style={styles.authLabel}>Mot de passe</Text>
             <TextInput
               secureTextEntry
+              autoCorrect={false}
+              spellCheck={false}
               value={form.password}
               onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
               style={styles.authInput}
@@ -219,6 +223,8 @@ export default function HubScreen() {
             <View style={styles.authField}>
               <Text style={styles.authLabel}>{usernameLabel}</Text>
               <TextInput
+                autoCorrect={false}
+                spellCheck={false}
                 value={form.username}
                 onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
                 style={styles.authInput}

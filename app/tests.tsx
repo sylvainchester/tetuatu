@@ -674,6 +674,7 @@ function Test1Exercise() {
               style={[styles.textInput, styles.flexInput]}
               autoCapitalize="none"
               autoCorrect={false}
+              spellCheck={false}
             />
           </View>
 
@@ -858,6 +859,7 @@ function Test9Exercise() {
                   style={[styles.textInput, styles.flexInput]}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  spellCheck={false}
                   editable={!result}
                 />
               )}
@@ -1123,6 +1125,7 @@ function Test10Exercise() {
                 multiline
                 style={[styles.textInput, styles.textArea]}
                 autoCorrect={false}
+                spellCheck={false}
               />
 
               <View style={styles.actionsRow}>
@@ -1298,6 +1301,8 @@ function Test11Exercise() {
             placeholder="Ecris ta reponse ici..."
             placeholderTextColor="#64748b"
             editable={!submitted}
+            autoCorrect={false}
+            spellCheck={false}
           />
           <Text style={styles.mutedSmall}>
             Mots: {words}/{current.nombre_mots}

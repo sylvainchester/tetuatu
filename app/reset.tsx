@@ -79,6 +79,8 @@ export default function ResetScreen() {
           <Text style={styles.label}>Mot de passe</Text>
           <TextInput
             secureTextEntry
+            autoCorrect={false}
+            spellCheck={false}
             value={password}
             onChangeText={setPassword}
             style={styles.input}
@@ -89,6 +91,8 @@ export default function ResetScreen() {
           <Text style={styles.label}>Confirmation</Text>
           <TextInput
             secureTextEntry
+            autoCorrect={false}
+            spellCheck={false}
             value={confirm}
             onChangeText={setConfirm}
             style={styles.input}
