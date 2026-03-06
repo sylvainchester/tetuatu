@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 
 import {
@@ -8,6 +8,7 @@ import {
   listStudentsForAdmin,
   type AccessWhitelistRow
 } from '@/lib/accessControl';
+import registerForWebPushAsync from '@/lib/impostor/registerForWebPushAsync';
 import { supabase } from '@/lib/supabase';
 
 export default function OptionsScreen() {
@@ -20,6 +21,10 @@ export default function OptionsScreen() {
   const [info, setInfo] = useState('');
   const [sessionUserId, setSessionUserId] = useState('');
   const [sessionEmail, setSessionEmail] = useState('');
+  const [notifInfo, setNotifInfo] = useState('');
+  const [notifError, setNotifError] = useState('');
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
 
   async function loadAccess() {
     setLoading(true);
@@ -59,6 +64,18 @@ export default function OptionsScreen() {
     loadAccess();
   }, []);
 
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      setNotifPermission('unsupported');
+      return;
+    }
+    if (typeof Notification === 'undefined') {
+      setNotifPermission('unsupported');
+      return;
+    }
+    setNotifPermission(Notification.permission as any);
+  }, []);
+
   async function handleAddStudent() {
     if (!sessionUserId || !sessionEmail) return;
     setSaving(true);
@@ -78,6 +95,27 @@ export default function OptionsScreen() {
       setError(err.message || 'Erreur ajout eleve.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleEnableNotifications() {
+    setNotifSaving(true);
+    setNotifError('');
+    setNotifInfo('');
+    try {
+      const subscription = await registerForWebPushAsync();
+      if (Platform.OS === 'web' && typeof Notification !== 'undefined') {
+        setNotifPermission(Notification.permission as any);
+      }
+      if (subscription) {
+        setNotifInfo('Notifications activées. Tu recevras les alertes de correction.');
+      } else {
+        setNotifError("Notifications non activées. Vérifie l'autorisation du navigateur.");
+      }
+    } catch (err: any) {
+      setNotifError(err.message || "Impossible d'activer les notifications.");
+    } finally {
+      setNotifSaving(false);
     }
   }
 
@@ -117,6 +155,33 @@ export default function OptionsScreen() {
                 <Text style={styles.value}>{entry.teacher_email || '-'}</Text>
               </>
             ) : null}
+          </View>
+        ) : null}
+
+        {!loading && entry ? (
+          <View style={styles.block}>
+            <Text style={styles.sectionTitle}>Notifications</Text>
+            <Text style={styles.value}>
+              Statut navigateur:{' '}
+              {notifPermission === 'granted'
+                ? 'Autorisées'
+                : notifPermission === 'denied'
+                  ? 'Refusées'
+                  : notifPermission === 'unsupported'
+                    ? 'Non supportées'
+                    : 'Non demandées'}
+            </Text>
+            <Pressable
+              style={[styles.button, (notifSaving || notifPermission === 'unsupported') && styles.buttonDisabled]}
+              onPress={handleEnableNotifications}
+              disabled={notifSaving || notifPermission === 'unsupported'}
+            >
+              <Text style={styles.buttonText}>
+                {notifSaving ? 'Activation...' : 'Activer les notifications'}
+              </Text>
+            </Pressable>
+            {notifInfo ? <Text style={styles.info}>{notifInfo}</Text> : null}
+            {notifError ? <Text style={styles.error}>{notifError}</Text> : null}
           </View>
         ) : null}
 
