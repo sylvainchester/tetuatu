@@ -2,6 +2,7 @@ import { createElement, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -27,7 +28,9 @@ import {
   type Test11Row,
   type Test9Row
 } from '@/lib/frenchTests';
-import { submitExerciseAttempt } from '@/lib/exerciseApi';
+import { fetchWhitelistByEmail } from '@/lib/accessControl';
+import { listStudentAttempts, listStudentCorrections, submitExerciseAttempt } from '@/lib/exerciseApi';
+import { supabase } from '@/lib/supabase';
 
 const EXERCISES = [
   { id: 'test1', title: 'Conjugaison', subtitle: 'Verbes, temps, pronoms.' },
@@ -69,8 +72,18 @@ type DropdownOption = {
   value: string;
 };
 
+type StudentHistoryAttempt = {
+  id: string;
+  test_id: string;
+  title: string;
+  summary: string;
+  score: number | null;
+  payload: Record<string, any>;
+  created_at: string;
+};
+
 const TEST1_TENSES: Array<{ key: Test1TenseKey; label: string }> = [
-  { key: 'present', label: 'Present' },
+  { key: 'present', label: 'Present de l indicatif' },
   { key: 'futur', label: 'Futur' },
   { key: 'imparfait', label: 'Imparfait' },
   { key: 'passeCompose', label: 'Passe compose' },
@@ -157,6 +170,211 @@ function speakTextWeb(text: string, language: 'fr' | 'en') {
   utter.rate = 0.95;
   g.window.speechSynthesis.speak(utter);
   return true;
+}
+
+function isCorrectAttempt(attempt: StudentHistoryAttempt) {
+  if (typeof attempt.score === 'number') return attempt.score >= 1;
+  const summary = String(attempt.summary || '').toLowerCase();
+  if (summary.includes('a corriger') || summary.includes('faute') || summary.includes('incorrect')) return false;
+  return summary.includes('correct');
+}
+
+function hasCorrectionPayload(payload: Record<string, any>) {
+  return Boolean(
+    payload?.correction_source_id ||
+      payload?.correction_answer ||
+      payload?.correction_text ||
+      (Array.isArray(payload?.correction_answers) && payload.correction_answers.length)
+  );
+}
+
+function attemptStatus(attempt: StudentHistoryAttempt) {
+  const ok = isCorrectAttempt(attempt);
+  const corrected =
+    hasCorrectionPayload(attempt.payload || {}) || String(attempt.title || '').toLowerCase().startsWith('correction');
+  if (ok && corrected) return 'corrected' as const;
+  if (ok) return 'correct_first_try' as const;
+  return 'to_fix' as const;
+}
+
+function initialResponseForAttempt(attempt: StudentHistoryAttempt) {
+  const payload = attempt.payload || {};
+  if (attempt.test_id === 'test1') return String(payload.answer || '(vide)');
+  if (attempt.test_id === 'test9') return Array.isArray(payload.answers) ? payload.answers.join(' | ') : '(vide)';
+  if (attempt.test_id === 'test10') {
+    if (!Array.isArray(payload.answers)) return '(vide)';
+    return payload.answers.map((item: any, index: number) => `P${index + 1}: ${item?.typed || '(vide)'}`).join(' | ');
+  }
+  if (attempt.test_id === 'test11') return String(payload.text || '(vide)');
+  return '(vide)';
+}
+
+function latestCorrectionForAttempt(attempt: StudentHistoryAttempt) {
+  const payload = attempt.payload || {};
+  if (attempt.test_id === 'test1') return String(payload.correction_answer || '(aucune)');
+  if (attempt.test_id === 'test9') return Array.isArray(payload.correction_answers) ? payload.correction_answers.join(' | ') : '(aucune)';
+  if (attempt.test_id === 'test10') return String(payload.correction_answer || '(aucune)');
+  if (attempt.test_id === 'test11') return String(payload.correction_text || '(aucune)');
+  return '(aucune)';
+}
+
+function formatAttemptDate(value: string) {
+  return value.slice(0, 19).replace('T', ' ');
+}
+
+function StudentHistoryBlock({ testId }: { testId: ExerciseId }) {
+  const [items, setItems] = useState<StudentHistoryAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<StudentHistoryAttempt | null>(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const payload = await listStudentAttempts(testId);
+        if (cancelled) return;
+        setItems(payload.data || []);
+      } catch (err: any) {
+        if (cancelled) return;
+        const message = err.message || 'Erreur chargement historique.';
+        if (message === 'not_student') {
+          setItems([]);
+          setError('');
+        } else {
+          setError(message);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [testId]);
+
+  return (
+    <View style={styles.block}>
+      <Text style={styles.sectionTitle}>Historique</Text>
+      {loading ? <Text style={styles.mutedSmall}>Chargement...</Text> : null}
+      {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      {!loading && !items.length ? <Text style={styles.mutedSmall}>Aucun exercice precedent.</Text> : null}
+      {items.map((item) => {
+        const status = attemptStatus(item);
+        const statusLabel =
+          status === 'correct_first_try'
+            ? 'Correct du premier coup'
+            : status === 'corrected'
+              ? 'Corrigé puis correct'
+              : 'A corriger';
+        return (
+          <Pressable
+            key={item.id}
+            style={[
+              styles.historyRow,
+              status === 'correct_first_try'
+                ? styles.historyRowOk
+                : status === 'corrected'
+                  ? styles.historyRowCorrected
+                  : styles.historyRowKo
+            ]}
+            onPress={() => setSelected(item)}
+          >
+            <Text style={styles.historyTitle}>{formatAttemptDate(item.created_at)}</Text>
+            <Text style={styles.historyMeta}>{statusLabel}</Text>
+          </Pressable>
+        );
+      })}
+
+      <Modal visible={!!selected} transparent animationType="fade" onRequestClose={() => setSelected(null)}>
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.sectionTitle}>Detail exercice</Text>
+              <Pressable onPress={() => setSelected(null)}>
+                <Text style={styles.back}>Fermer</Text>
+              </Pressable>
+            </View>
+            {selected ? (
+              <ScrollView>
+                <Text style={styles.reviewText}>Date: {formatAttemptDate(selected.created_at)}</Text>
+                <Text style={styles.reviewText}>
+                  Statut: {attemptStatus(selected) === 'correct_first_try'
+                    ? 'Correct du premier coup'
+                    : attemptStatus(selected) === 'corrected'
+                      ? 'Corrigé puis correct'
+                      : 'A corriger'}
+                </Text>
+                <Text style={styles.reviewText}>Resultat: {selected.summary || '-'}</Text>
+                {selected.test_id !== 'test9' ? (
+                  <Text style={styles.reviewText}>Reponse initiale: {initialResponseForAttempt(selected)}</Text>
+                ) : null}
+                {selected.test_id !== 'test9' && attemptStatus(selected) === 'corrected' ? (
+                  <Text style={styles.reviewText}>Reponse corrigée: {latestCorrectionForAttempt(selected)}</Text>
+                ) : null}
+                {selected.test_id === 'test1' ? (
+                  <View style={styles.reviewCard}>
+                    <Text style={styles.reviewText}>Verbe: {selected.payload?.verb || '-'}</Text>
+                    <Text style={styles.reviewText}>Temps: {selected.payload?.tense || '-'}</Text>
+                    <Text style={styles.reviewText}>Personne: {selected.payload?.person || '-'}</Text>
+                    <Text style={styles.reviewText}>Reponse initiale: {selected.payload?.answer || '(vide)'}</Text>
+                    {selected.payload?.correction_answer ? (
+                      <Text style={styles.reviewText}>Reponse corrigée: {selected.payload.correction_answer}</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                {selected.test_id === 'test9' &&
+                Array.isArray(selected.payload?.expected) &&
+                Array.isArray(selected.payload?.answers) ? (
+                  <View style={styles.reviewCard}>
+                    <Text style={styles.reviewText}>Phrase: {selected.payload?.preview || '-'}</Text>
+                    {selected.payload.expected.map((_expected: string, index: number) => (
+                      <Text key={`h9-${index}`} style={styles.reviewText}>
+                        [{index + 1}] Reponse initiale: {selected.payload.answers[index] || '(vide)'}
+                      </Text>
+                    ))}
+                    {Array.isArray(selected.payload?.correction_answers)
+                      ? selected.payload.correction_answers.map((value: string, index: number) => (
+                          <Text key={`h9c-${index}`} style={styles.reviewText}>
+                            [{index + 1}] Reponse corrigée: {value || '(vide)'}
+                          </Text>
+                        ))
+                      : null}
+                  </View>
+                ) : null}
+                {selected.test_id === 'test10' && Array.isArray(selected.payload?.answers) ? (
+                  <View style={styles.reviewCard}>
+                    {selected.payload.answers.map((item: any, index: number) => (
+                      <Text key={`h10-${index}`} style={styles.reviewText}>
+                        Phrase {index + 1} reponse initiale: {item?.typed || '(vide)'}
+                      </Text>
+                    ))}
+                    {selected.payload?.correction_answer ? (
+                      <Text style={styles.reviewText}>Reponse corrigée: {selected.payload.correction_answer}</Text>
+                    ) : null}
+                  </View>
+                ) : null}
+                {selected.test_id === 'test11' ? (
+                  <View style={styles.reviewCard}>
+                    <Text style={styles.reviewText}>Sujet: {selected.payload?.question || '-'}</Text>
+                    <Text style={styles.reviewText}>Reponse initiale: {selected.payload?.text || '(vide)'}</Text>
+                    {selected.payload?.correction_text ? (
+                      <Text style={styles.reviewText}>Reponse corrigée: {selected.payload.correction_text}</Text>
+                    ) : null}
+                    <Text style={styles.reviewText}>
+                      Mots: {selected.payload?.words || 0}/{selected.payload?.minimumWords || 0}
+                    </Text>
+                  </View>
+                ) : null}
+              </ScrollView>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
 }
 
 function buildTest1Round(row: Test1VerbRow, enabledTenses: Test1TenseKey[]): Test1Round {
@@ -441,9 +659,7 @@ function Test1Exercise() {
       {round ? (
         <View style={styles.block}>
           <Text style={styles.questionLine}>Conjuguer le verbe</Text>
-          <Text style={styles.questionMain}>
-            {round.verb} {round.translation ? `(${round.translation})` : ''}
-          </Text>
+          <Text style={styles.questionMain}>{round.verb}</Text>
           <Text style={styles.questionMeta}>{round.tenseLabel}</Text>
           <Text style={styles.questionMeta}>{round.personLabel}</Text>
 
@@ -463,7 +679,8 @@ function Test1Exercise() {
 
           <View style={styles.actionsRow}>
             <Pressable
-              style={styles.primaryButton}
+              style={[styles.primaryButton, result ? styles.buttonDisabled : null]}
+              disabled={!!result}
               onPress={async () => {
                 const ok = normalizeAnswer(answer) === normalizeAnswer(round.expected);
                 setResult({ ok, expected: round.expected });
@@ -473,7 +690,7 @@ function Test1Exercise() {
                   await submitExerciseAttempt({
                     testId: 'test1',
                     title: 'Conjugaison',
-                    summary: `${ok ? 'Correct' : 'Incorrect'} • ${round.verb} • ${round.tenseLabel}`,
+                    summary: `${ok ? 'Correct' : 'A corriger'} • ${round.verb} • ${round.tenseLabel}`,
                     score: ok ? 1 : 0,
                     payload: {
                       verb: round.verb,
@@ -500,13 +717,13 @@ function Test1Exercise() {
           {result ? (
             <View style={[styles.feedbackBox, result.ok ? styles.feedbackOk : styles.feedbackKo]}>
               <Text style={styles.feedbackTitle}>{result.ok ? 'Correct' : 'A corriger'}</Text>
-              {!result.ok ? <Text style={styles.feedbackText}>Attendu: {result.expected}</Text> : null}
             </View>
           ) : null}
           {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
+      <StudentHistoryBlock testId="test1" />
     </View>
   );
 }
@@ -600,37 +817,36 @@ function Test9Exercise() {
 
   return (
     <View style={styles.exerciseSection}>
-      <Text style={styles.sectionTitle}>Categorie</Text>
-      <Chips options={categories} selected={selectedCategory} onSelect={setSelectedCategory} />
+      <SimpleDropdown
+        label="Categorie"
+        options={categories.map((item) => ({ label: item, value: item }))}
+        value={selectedCategory}
+        onChange={setSelectedCategory}
+        disabled={!categories.length || loading}
+      />
       {loadingRows ? <LoadingBlock /> : null}
       {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
       {row && parsed ? (
         <View style={styles.block}>
-          <Text style={styles.questionMain}>Orthographe</Text>
           {parsed.title ? <Text style={styles.questionMeta}>{parsed.title}</Text> : null}
           <Text style={styles.promptText}>{parsed.textPreview}</Text>
 
           {parsed.answers.map((_, index) => (
             <View key={index} style={styles.answerRow}>
-              <Text style={styles.answerIndex}>[{index + 1}]</Text>
               {choiceOptions.length ? (
-                <View style={styles.chips}>
-                  {choiceOptions.map((option) => {
-                    const active = answers[index] === option;
-                    return (
-                      <Pressable
-                        key={`${index}-${option}`}
-                        style={[styles.chip, active && styles.chipActive]}
-                        onPress={() =>
-                          setAnswers((prev) => prev.map((value, i) => (i === index ? option : value)))
-                        }
-                      >
-                        <Text style={[styles.chipText, active && styles.chipTextActive]}>{option}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+                <SimpleDropdown
+                  label={`Choix ${index + 1}`}
+                  options={[
+                    { label: 'Selectionner', value: '' },
+                    ...choiceOptions.map((option) => ({ label: option, value: option }))
+                  ]}
+                  value={answers[index] || ''}
+                  onChange={(value) =>
+                    setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
+                  }
+                  disabled={!!result}
+                />
               ) : (
                 <TextInput
                   value={answers[index] || ''}
@@ -642,6 +858,7 @@ function Test9Exercise() {
                   style={[styles.textInput, styles.flexInput]}
                   autoCapitalize="none"
                   autoCorrect={false}
+                  editable={!result}
                 />
               )}
             </View>
@@ -649,7 +866,8 @@ function Test9Exercise() {
 
           <View style={styles.actionsRow}>
             <Pressable
-              style={styles.primaryButton}
+              style={[styles.primaryButton, result ? styles.buttonDisabled : null]}
+              disabled={!!result}
               onPress={async () => {
                 const checks = parsed.answers.map(
                   (expected, index) => normalizeAnswer(expected) === normalizeAnswer(answers[index] || '')
@@ -691,18 +909,18 @@ function Test9Exercise() {
               <Text style={styles.feedbackTitle}>
                 {result.every(Boolean) ? 'Tout est correct' : `${result.filter(Boolean).length}/${result.length} correct`}
               </Text>
-              {parsed.answers.map((expected, index) => (
+              {parsed.answers.map((_expected, index) => (
                 <Text key={`feedback-${index}`} style={styles.feedbackText}>
-                  [{index + 1}] {result[index] ? 'OK' : `Attendu: ${expected}`}
+                  [{index + 1}] {result[index] ? 'OK' : 'A corriger'}
                 </Text>
               ))}
-              {row.lecon ? <Text style={styles.mutedSmall}>Lecon: {row.lecon}</Text> : null}
             </View>
           ) : null}
           {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
+      <StudentHistoryBlock testId="test9" />
     </View>
   );
 }
@@ -893,7 +1111,7 @@ function Test10Exercise() {
                     }
                   }}
                 >
-                  <Text style={styles.secondaryButtonText}>Lire (web)</Text>
+                  <Text style={styles.secondaryButtonText}>Ecouter la phrase</Text>
                 </Pressable>
               </View>
 
@@ -941,10 +1159,9 @@ function Test10Exercise() {
               {answers.map((item, index) => (
                 <View key={`t10-${index}`} style={styles.reviewCard}>
                   <Text style={styles.reviewTitle}>
-                    Phrase {index + 1} - {item.exact ? 'OK' : `${item.mistakes} faute(s)`}
+                    Phrase {index + 1} - {item.exact ? 'Correct' : `${item.mistakes} faute(s)`}
                   </Text>
                   <Text style={styles.reviewText}>Saisi: {item.typed || '(vide)'}</Text>
-                  <Text style={styles.reviewText}>Attendu: {item.expected}</Text>
                 </View>
               ))}
 
@@ -968,12 +1185,13 @@ function Test10Exercise() {
           )}
         </View>
       ) : null}
+      <StudentHistoryBlock testId="test10" />
     </View>
   );
 }
 
 function Test11Exercise() {
-  const [langue, setLangue] = useState<'fr' | 'en'>('fr');
+  const langue: 'fr' = 'fr';
   const [categories, setCategories] = useState<string[]>([]);
   const [categorie, setCategorie] = useState('');
   const [prompts, setPrompts] = useState<Test11Row[]>([]);
@@ -1057,8 +1275,6 @@ function Test11Exercise() {
   return (
     <View style={styles.exerciseSection}>
       <View style={styles.block}>
-        <Text style={styles.label}>Langue</Text>
-        <Chips options={['fr', 'en']} selected={langue} onSelect={(value) => setLangue(value as 'fr' | 'en')} />
         <Text style={styles.label}>Categorie</Text>
         {loadingCategories ? <LoadingBlock /> : <Chips options={categories} selected={categorie} onSelect={setCategorie} />}
       </View>
@@ -1079,8 +1295,9 @@ function Test11Exercise() {
             onChangeText={setText}
             multiline
             style={[styles.textInput, styles.longTextArea]}
-            placeholder={langue === 'fr' ? 'Ecris ta reponse ici...' : 'Write your answer here...'}
+            placeholder="Ecris ta reponse ici..."
             placeholderTextColor="#64748b"
+            editable={!submitted}
           />
           <Text style={styles.mutedSmall}>
             Mots: {words}/{current.nombre_mots}
@@ -1088,8 +1305,8 @@ function Test11Exercise() {
 
           <View style={styles.actionsRow}>
             <Pressable
-              style={[styles.primaryButton, !canSubmit && styles.buttonDisabled]}
-              disabled={!canSubmit}
+              style={[styles.primaryButton, (!canSubmit || submitted) && styles.buttonDisabled]}
+              disabled={!canSubmit || submitted}
               onPress={async () => {
                 if (!current) return;
                 setSubmitted(true);
@@ -1127,13 +1344,13 @@ function Test11Exercise() {
           {submitted ? (
             <View style={[styles.feedbackBox, styles.feedbackOk]}>
               <Text style={styles.feedbackTitle}>Reponse enregistree</Text>
-              <Text style={styles.feedbackText}>Commentaire legacy non reproduit ici pour le moment.</Text>
             </View>
           ) : null}
           {submitInfo ? <Text style={styles.mutedSmall}>{submitInfo}</Text> : null}
           {submitError ? <Text style={styles.errorText}>{submitError}</Text> : null}
         </View>
       ) : null}
+      <StudentHistoryBlock testId="test11" />
     </View>
   );
 }
@@ -1149,6 +1366,35 @@ function TestScreen({ id }: { id: ExerciseId }) {
 export default function FrenchTestsScreen() {
   const { test } = useLocalSearchParams<{ test?: string }>();
   const selected = getExerciseById(test);
+  const [isStudent, setIsStudent] = useState(false);
+  const [hasCorrections, setHasCorrections] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const email = data.session?.user?.email;
+        if (!email || cancelled) return;
+        const access = await fetchWhitelistByEmail(email);
+        if (!cancelled) setIsStudent(access?.role === 'eleve');
+        if (access?.role === 'eleve') {
+          const pending = await listStudentCorrections();
+          if (!cancelled) setHasCorrections((pending.data || []).length > 0);
+        } else if (!cancelled) {
+          setHasCorrections(false);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsStudent(false);
+          setHasCorrections(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (selected) {
     return (
@@ -1177,8 +1423,13 @@ export default function FrenchTestsScreen() {
             <Text style={styles.back}>Retour</Text>
           </Pressable>
           <Text style={styles.title}>Exercices de francais</Text>
-          <Text style={styles.subtitle}>MVP connecte a Supabase (tests 1, 9, 10, 11).</Text>
         </View>
+
+        {isStudent && hasCorrections ? (
+          <Pressable style={styles.floatingCorrectionCard} onPress={() => router.push('/tests-corrections')}>
+            <Text style={styles.floatingCorrectionTitle}>CORRECTION</Text>
+          </Pressable>
+        ) : null}
 
         <View style={styles.grid}>
           {EXERCISES.map((exercise) => (
@@ -1189,9 +1440,6 @@ export default function FrenchTestsScreen() {
             >
               <Text style={styles.cardTitle}>{exercise.title}</Text>
               <Text style={styles.cardMeta}>{exercise.subtitle}</Text>
-              <View style={styles.cardAction}>
-                <Text style={styles.cardActionText}>Ouvrir</Text>
-              </View>
             </Pressable>
           ))}
         </View>
@@ -1239,6 +1487,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2937'
   },
+  floatingCorrectionCard: {
+    position: 'absolute',
+    top: 18,
+    right: 20,
+    zIndex: 20,
+    backgroundColor: '#3b0a0a',
+    borderWidth: 1,
+    borderColor: '#7f1d1d',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8
+  },
+  floatingCorrectionTitle: {
+    color: '#fecaca',
+    fontWeight: '800',
+    letterSpacing: 0.4
+  },
   cardTitle: {
     fontSize: 20,
     fontWeight: '700',
@@ -1247,18 +1512,6 @@ const styles = StyleSheet.create({
   cardMeta: {
     marginTop: 6,
     color: '#94a3b8'
-  },
-  cardAction: {
-    marginTop: 14,
-    alignSelf: 'flex-start',
-    backgroundColor: '#22c55e',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 10
-  },
-  cardActionText: {
-    color: '#052e16',
-    fontWeight: '700'
   },
   exerciseSection: {
     gap: 14
@@ -1473,5 +1726,51 @@ const styles = StyleSheet.create({
   },
   reviewText: {
     color: '#cbd5e1'
+  },
+  historyRow: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+    gap: 4
+  },
+  historyRowOk: {
+    backgroundColor: '#052e16',
+    borderColor: '#166534'
+  },
+  historyRowKo: {
+    backgroundColor: '#3f1d1d',
+    borderColor: '#7f1d1d'
+  },
+  historyRowCorrected: {
+    backgroundColor: '#5b3a0a',
+    borderColor: '#c2410c'
+  },
+  historyTitle: {
+    color: '#f8fafc',
+    fontWeight: '700'
+  },
+  historyMeta: {
+    color: '#cbd5e1',
+    fontSize: 12
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.72)',
+    justifyContent: 'center',
+    padding: 20
+  },
+  modalCard: {
+    maxHeight: '84%',
+    backgroundColor: '#111827',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    padding: 14
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8
   }
 });

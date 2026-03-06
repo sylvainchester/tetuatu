@@ -31,6 +31,9 @@ export default function HubScreen() {
   const [accessRole, setAccessRole] = useState<'admin' | 'eleve' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const { ensureUser, logout: logoutImpostor, isLoading: impostorLoading, error: impostorError } = useGameStore();
+  const displayName = profileName
+    ? `${profileName.charAt(0).toUpperCase()}${profileName.slice(1)}`
+    : 'joueur';
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -259,7 +262,7 @@ export default function HubScreen() {
       </View>
       <View style={styles.hubHeader}>
         <View>
-          <Text style={styles.hubTitle}>Salut {profileName || 'joueur'}.</Text>
+          <Text style={styles.hubTitle}>Salut {displayName}.</Text>
           <Text style={styles.hubSubtitle}>
             Choisis ton terrain de jeu. {accessRole ? `Role: ${accessRole}.` : ''}
           </Text>

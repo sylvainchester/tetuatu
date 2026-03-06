@@ -23,6 +23,7 @@ module.exports = async function handler(req, res) {
   const summary = String(body.summary || '').trim();
   const score = typeof body.score === 'number' ? body.score : null;
   const payload = typeof body.payload === 'object' && body.payload ? body.payload : {};
+  const correctionSourceId = String(payload.correction_source_id || '').trim();
   if (!testId || !title) return json(res, 400, { error: 'missing_test_info' });
 
   const studentEmail = user.email.toLowerCase();
@@ -33,7 +34,18 @@ module.exports = async function handler(req, res) {
     .eq('email', studentEmail)
     .eq('role', 'eleve')
     .limit(1);
-  if (whitelistError) return json(res, 500, { error: whitelistError.message || 'whitelist_lookup_failed' });
+  if (whitelistError) {
+    console.error('[submit] whitelist lookup failed', {
+      message: whitelistError.message,
+      details: whitelistError.details,
+      hint: whitelistError.hint,
+      code: whitelistError.code
+    });
+    return json(res, 500, {
+      error: whitelistError.message || 'whitelist_lookup_failed',
+      code: whitelistError.code || null
+    });
+  }
   const whitelist = (whitelistRows || [])[0];
   if (!whitelist) return json(res, 403, { error: 'not_student_or_not_whitelisted' });
 
@@ -61,21 +73,64 @@ module.exports = async function handler(req, res) {
   const attemptPayload = {
     student_user_id: user.id,
     student_email: studentEmail,
-    teacher_user_id: teacherUserId,
     teacher_email: teacherEmail,
     test_id: testId,
     title,
     summary,
     score,
-    payload
+    payload,
+    updated_at: new Date().toISOString(),
+    prof_read_at: null
   };
 
-  const { data: inserted, error: insertError } = await supabaseAdmin
-    .from('exercise_attempts')
-    .insert(attemptPayload)
-    .select('id')
-    .limit(1);
-  if (insertError) return json(res, 500, { error: insertError.message || 'attempt_insert_failed' });
+  let attemptId = null;
+  if (correctionSourceId) {
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('exercise_attempts')
+      .update(attemptPayload)
+      .eq('id', correctionSourceId)
+      .eq('student_user_id', user.id)
+      .eq('test_id', testId)
+      .select('id')
+      .limit(1);
+    if (updateError) {
+      console.error('[submit] attempt update failed', {
+        message: updateError.message,
+        details: updateError.details,
+        hint: updateError.hint,
+        code: updateError.code,
+        attemptPayload,
+        correctionSourceId
+      });
+      return json(res, 500, {
+        error: updateError.message || 'attempt_update_failed',
+        code: updateError.code || null
+      });
+    }
+    const row = (updated || [])[0];
+    if (!row) return json(res, 404, { error: 'attempt_not_found_for_correction' });
+    attemptId = row.id;
+  } else {
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('exercise_attempts')
+      .insert(attemptPayload)
+      .select('id')
+      .limit(1);
+    if (insertError) {
+      console.error('[submit] attempt insert failed', {
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        code: insertError.code,
+        attemptPayload
+      });
+      return json(res, 500, {
+        error: insertError.message || 'attempt_insert_failed',
+        code: insertError.code || null
+      });
+    }
+    attemptId = inserted?.[0]?.id || null;
+  }
 
   if (teacherUserId) {
     try {
@@ -85,7 +140,7 @@ module.exports = async function handler(req, res) {
         body: `${studentEmail} a termine ${title}`,
         data: {
           type: 'exercise_attempt',
-          attemptId: inserted?.[0]?.id || null,
+          attemptId,
           studentEmail,
           testId
         }
@@ -95,5 +150,5 @@ module.exports = async function handler(req, res) {
     }
   }
 
-  return json(res, 200, { success: true, attemptId: inserted?.[0]?.id || null });
+  return json(res, 200, { success: true, attemptId });
 };

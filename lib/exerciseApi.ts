@@ -49,3 +49,26 @@ export async function fetchProfAttempt(id: string) {
   const safe = encodeURIComponent(id);
   return request(`/prof/attempt?id=${safe}`);
 }
+
+export async function markProfAttemptRead(id: string) {
+  return request('/prof/mark-read', {
+    method: 'POST',
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function submitProfReview(params: { id: string; decision: 'correct' | 'a_corriger'; comment: string }) {
+  return request('/prof/review', {
+    method: 'POST',
+    body: JSON.stringify(params)
+  });
+}
+
+export async function listStudentCorrections() {
+  return request('/student/corrections');
+}
+
+export async function listStudentAttempts(testId: string) {
+  const safe = encodeURIComponent(testId);
+  return request(`/student/attempts?test_id=${safe}`);
+}

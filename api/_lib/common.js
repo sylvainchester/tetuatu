@@ -1,7 +1,32 @@
 const { createClient } = require('@supabase/supabase-js');
+const fs = require('fs');
+const path = require('path');
 
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+function readEnvFromFile(key) {
+  const files = ['.env.local', '.env'];
+  for (const file of files) {
+    const fullPath = path.join(process.cwd(), file);
+    if (!fs.existsSync(fullPath)) continue;
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    const line = raw
+      .split('\n')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith(`${key}=`));
+    if (!line) continue;
+    const value = line.slice(`${key}=`.length).trim().replace(/^"(.*)"$/, '$1');
+    if (value) return value;
+  }
+  return '';
+}
+
+const SUPABASE_URL =
+  process.env.SUPABASE_URL ||
+  process.env.EXPO_PUBLIC_SUPABASE_URL ||
+  readEnvFromFile('SUPABASE_URL') ||
+  readEnvFromFile('EXPO_PUBLIC_SUPABASE_URL') ||
+  '';
+const SUPABASE_SERVICE_ROLE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || readEnvFromFile('SUPABASE_SERVICE_ROLE_KEY') || '';
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   // eslint-disable-next-line no-console
