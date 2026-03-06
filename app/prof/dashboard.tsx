@@ -298,7 +298,7 @@ export default function ProfDashboardScreen() {
           <Pressable onPress={() => router.back()}>
             <Text style={styles.back}>Retour</Text>
           </Pressable>
-          <Text style={styles.title}>Corrections</Text>
+          <Text style={styles.title}>Suivi des exercices</Text>
           <Text style={styles.subtitle}>Exercices eleves, du plus recent au plus ancien.</Text>
         </View>
 

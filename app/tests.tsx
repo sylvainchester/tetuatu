@@ -1422,7 +1422,7 @@ export default function FrenchTestsScreen() {
           <Pressable onPress={() => router.back()}>
             <Text style={styles.back}>Retour</Text>
           </Pressable>
-          <Text style={styles.title}>Exercices de francais</Text>
+          <Text style={styles.title}>Exercices</Text>
         </View>
 
         {isStudent && hasCorrections ? (
