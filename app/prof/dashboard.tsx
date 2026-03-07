@@ -431,6 +431,7 @@ export default function ProfDashboardScreen() {
                         Eleve: {(attempts.find((item) => item.id === selected.id)?.student_username || '') || 'Profil inconnu'}
                       </Text>
                       <Text style={styles.detailLine}>Date: {prettyDate(selected.created_at)}</Text>
+                      <Text style={styles.detailLine}>Sujet: {String(selected.payload?.question || '-')}</Text>
 
                       <Text style={styles.detailGroupTitle}>Texte élève initial</Text>
                       <TextInput
