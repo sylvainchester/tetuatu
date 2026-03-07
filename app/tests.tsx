@@ -664,12 +664,8 @@ function Test1Exercise() {
           <Text style={styles.questionMeta}>{round.personLabel}</Text>
 
           <Text style={styles.label}>Reponse</Text>
-          <View style={styles.inlineInputRow}>
-            <Text style={styles.pronoun}>{round.pronoun}</Text>
-            <View style={styles.flexInput}>
-              <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
-            </View>
-          </View>
+          <Text style={styles.pronoun}>{round.pronoun}</Text>
+          <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
 
           <View style={styles.actionsRow}>
             <Pressable

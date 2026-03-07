@@ -104,7 +104,9 @@ export default function VirtualKeyboardInput({
 
 const styles = StyleSheet.create({
   container: {
-    gap: 8
+    gap: 8,
+    width: '100%',
+    alignSelf: 'stretch'
   },
   input: {
     borderWidth: 1,
@@ -135,20 +137,24 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 8,
     backgroundColor: '#020617',
-    gap: 6
+    gap: 6,
+    width: '100%',
+    alignSelf: 'stretch'
   },
   row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6
+    flexWrap: 'nowrap',
+    gap: 4,
+    width: '100%'
   },
   key: {
-    minWidth: 28,
+    flex: 1,
+    minWidth: 0,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#334155',
     backgroundColor: '#0f172a',
-    paddingHorizontal: 8,
+    paddingHorizontal: 2,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center'
@@ -168,7 +174,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   actionKeyWide: {
-    minWidth: 62
+    minWidth: 58
   },
   actionKeySpace: {
     flex: 1
