@@ -2,7 +2,7 @@ import { DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import Head from 'expo-router/head';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import 'react-native-reanimated';
 import axios from 'axios';
@@ -23,6 +23,9 @@ export default function RootLayout() {
   const [updateReady, setUpdateReady] = useState(false);
   const [applyingUpdate, setApplyingUpdate] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState('');
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
     enable();
@@ -55,12 +58,18 @@ export default function RootLayout() {
       if (registration.waiting) {
         setWaitingWorker(registration.waiting);
         setUpdateReady(true);
+        setUpdateStatus('Mise a jour disponible');
+      } else {
+        setUpdateReady(false);
+        setWaitingWorker(null);
+        setUpdateStatus('Version a jour');
       }
     };
 
     const start = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/service-worker.js');
+        registrationRef.current = registration;
         registration.update().catch(() => {});
         syncWaitingWorker(registration);
 
@@ -71,6 +80,7 @@ export default function RootLayout() {
             if (installing.state === 'installed' && navigator.serviceWorker.controller) {
               setWaitingWorker(installing);
               setUpdateReady(true);
+              setUpdateStatus('Mise a jour disponible');
             }
           });
         });
@@ -92,6 +102,7 @@ export default function RootLayout() {
       if (updateTimer) {
         clearInterval(updateTimer);
       }
+      registrationRef.current = null;
     };
   }, []);
 
@@ -130,6 +141,30 @@ export default function RootLayout() {
     window.location.reload();
   }
 
+  async function checkForUpdate() {
+    if (Platform.OS !== 'web') return;
+    const registration = registrationRef.current;
+    if (!registration) {
+      setUpdateStatus('Service worker indisponible');
+      return;
+    }
+    setCheckingUpdate(true);
+    try {
+      await registration.update();
+      if (registration.waiting) {
+        setWaitingWorker(registration.waiting);
+        setUpdateReady(true);
+        setUpdateStatus('Mise a jour disponible');
+      } else {
+        setUpdateStatus('Version a jour');
+      }
+    } catch {
+      setUpdateStatus('Verification impossible');
+    } finally {
+      setCheckingUpdate(false);
+    }
+  }
+
   return (
     <ThemeProvider value={DefaultTheme}>
       <Head>
@@ -142,6 +177,14 @@ export default function RootLayout() {
           <Text style={styles.updateText}>Nouvelle version disponible.</Text>
           <Pressable style={[styles.updateButton, applyingUpdate && styles.updateButtonDisabled]} onPress={applyUpdate} disabled={applyingUpdate}>
             <Text style={styles.updateButtonText}>{applyingUpdate ? 'Mise à jour...' : 'Mettre à jour'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {Platform.OS === 'web' ? (
+        <View style={styles.updateBar}>
+          <Text style={styles.updateBarText}>{updateStatus || 'Verification version...'}</Text>
+          <Pressable style={[styles.updateBarButton, checkingUpdate && styles.updateButtonDisabled]} onPress={checkForUpdate} disabled={checkingUpdate}>
+            <Text style={styles.updateBarButtonText}>{checkingUpdate ? 'Verification...' : 'Verifier mise a jour'}</Text>
           </Pressable>
         </View>
       ) : null}
@@ -196,5 +239,38 @@ const styles = StyleSheet.create({
   updateButtonText: {
     color: '#052e16',
     fontWeight: '800'
+  },
+  updateBar: {
+    position: 'absolute',
+    top: 62,
+    left: 8,
+    right: 8,
+    zIndex: 9998,
+    backgroundColor: '#111827',
+    borderColor: '#334155',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  updateBarText: {
+    color: '#cbd5e1',
+    fontSize: 12,
+    flex: 1
+  },
+  updateBarButton: {
+    backgroundColor: '#1d4ed8',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 7
+  },
+  updateBarButtonText: {
+    color: '#dbeafe',
+    fontWeight: '700',
+    fontSize: 12
   }
 });
