@@ -32,12 +32,20 @@ export default function VirtualKeyboardInput({
   const [upper, setUpper] = useState(false);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(value);
+  const [cursor, setCursor] = useState(value.length);
 
   useEffect(() => {
     if (!open) {
       setDraft(value);
+      setCursor(value.length);
     }
   }, [open, value]);
+
+  useEffect(() => {
+    if (cursor > draft.length) {
+      setCursor(draft.length);
+    }
+  }, [cursor, draft.length]);
 
   const rows = useMemo(
     () =>
@@ -52,15 +60,24 @@ export default function VirtualKeyboardInput({
   );
 
   function append(char: string) {
-    setDraft((prev) => `${prev}${char}`);
+    setDraft((prev) => `${prev.slice(0, cursor)}${char}${prev.slice(cursor)}`);
+    setCursor((prev) => prev + char.length);
   }
 
   function backspace() {
-    setDraft((prev) => prev.slice(0, -1));
+    if (cursor <= 0) return;
+    setDraft((prev) => `${prev.slice(0, cursor - 1)}${prev.slice(cursor)}`);
+    setCursor((prev) => Math.max(0, prev - 1));
+  }
+
+  function deleteForward() {
+    if (cursor >= draft.length) return;
+    setDraft((prev) => `${prev.slice(0, cursor)}${prev.slice(cursor + 1)}`);
   }
 
   function openKeyboard() {
     setDraft(value);
+    setCursor(value.length);
     setOpen(true);
   }
 
@@ -68,6 +85,17 @@ export default function VirtualKeyboardInput({
     onChangeText(draft);
     setOpen(false);
   }
+
+  function moveCursorLeft() {
+    setCursor((prev) => Math.max(0, prev - 1));
+  }
+
+  function moveCursorRight() {
+    setCursor((prev) => Math.min(draft.length, prev + 1));
+  }
+
+  const previewBefore = draft.slice(0, cursor);
+  const previewAfter = draft.slice(cursor);
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -92,7 +120,18 @@ export default function VirtualKeyboardInput({
 
             <View style={[styles.editorPreview, multiline && styles.editorPreviewMultiline]}>
               <Text style={[styles.editorPreviewText, !draft && styles.placeholder]}>
-                {draft || placeholder || ''}
+                {draft ? (
+                  <>
+                    {previewBefore}
+                    <Text style={styles.cursorMark}>|</Text>
+                    {previewAfter}
+                  </>
+                ) : (
+                  <>
+                    {placeholder || ''}
+                    <Text style={styles.cursorMark}>|</Text>
+                  </>
+                )}
               </Text>
             </View>
 
@@ -124,6 +163,21 @@ export default function VirtualKeyboardInput({
               </View>
 
               <View style={styles.row}>
+                <Pressable style={[styles.actionKey, styles.actionKeyNav]} onPress={() => setCursor(0)}>
+                  <Text style={styles.actionText}>Debut</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeyNav]} onPress={moveCursorLeft}>
+                  <Text style={styles.actionText}>{'<'}</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeyNav]} onPress={moveCursorRight}>
+                  <Text style={styles.actionText}>{'>'}</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeyNav]} onPress={() => setCursor(draft.length)}>
+                  <Text style={styles.actionText}>Fin</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.row}>
                 <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => setUpper((prev) => !prev)}>
                   <Text style={styles.actionText}>{upper ? 'Min' : 'Maj'}</Text>
                 </Pressable>
@@ -137,6 +191,9 @@ export default function VirtualKeyboardInput({
                 ) : null}
                 <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={backspace}>
                   <Text style={styles.actionText}>Suppr</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={deleteForward}>
+                  <Text style={styles.actionText}>Del</Text>
                 </Pressable>
                 <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => setDraft('')}>
                   <Text style={styles.actionText}>Effacer</Text>
@@ -229,6 +286,10 @@ const styles = StyleSheet.create({
   editorPreviewText: {
     color: '#f8fafc'
   },
+  cursorMark: {
+    color: '#22c55e',
+    fontWeight: '900'
+  },
   keyboard: {
     borderWidth: 1,
     borderColor: '#1f2937',
@@ -275,6 +336,10 @@ const styles = StyleSheet.create({
   },
   actionKeyWide: {
     minWidth: 62
+  },
+  actionKeyNav: {
+    flex: 1,
+    minWidth: 0
   },
   actionKeySpace: {
     flex: 1
