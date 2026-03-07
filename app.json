@@ -23,7 +23,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/icon.jpeg",
+      "favicon": "./public/icons/icon-192.png",
       "name": "Tetuatu",
       "shortName": "Tetuatu",
       "description": "Coinche et Imposteur, une seule app.",

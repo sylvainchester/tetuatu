@@ -174,7 +174,7 @@ export default function RootLayout() {
     <ThemeProvider value={DefaultTheme}>
       <Head>
         <link rel="manifest" href="/manifest.webmanifest" />
-        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=20260307" />
         <meta name="theme-color" content="#E6F4FE" />
       </Head>
       {Platform.OS === 'web' && updateReady ? (
