@@ -18,6 +18,7 @@ const LETTER_ROWS = [
 ] as const;
 
 const SYMBOL_ROW = ["'", '-', ',', '.', '?', '!'] as const;
+const ACCENT_ROW = ['â', 'ê', 'î', 'ô', 'û', 'ç', 'ë', 'ï', 'ü'] as const;
 
 export default function VirtualKeyboardInput({
   value,
@@ -43,6 +44,10 @@ export default function VirtualKeyboardInput({
       LETTER_ROWS.map((row) =>
         row.map((char) => (upper ? char.toUpperCase() : char))
       ),
+    [upper]
+  );
+  const accentChars = useMemo(
+    () => ACCENT_ROW.map((char) => (upper ? char.toUpperCase() : char)),
     [upper]
   );
 
@@ -101,6 +106,14 @@ export default function VirtualKeyboardInput({
                   ))}
                 </View>
               ))}
+
+              <View style={styles.row}>
+                {accentChars.map((char) => (
+                  <Pressable key={`accent-${char}`} style={styles.key} onPress={() => append(char)}>
+                    <Text style={styles.keyText}>{char}</Text>
+                  </Pressable>
+                ))}
+              </View>
 
               <View style={styles.row}>
                 {SYMBOL_ROW.map((char) => (
@@ -220,16 +233,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#1f2937',
     borderRadius: 12,
-    padding: 6,
+    padding: 4,
     backgroundColor: '#0b1220',
-    gap: 6,
+    gap: 4,
     width: '100%',
     alignSelf: 'stretch'
   },
   row: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
-    gap: 4,
+    gap: 2,
     width: '100%'
   },
   key: {
@@ -239,33 +252,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#334155',
     backgroundColor: '#0f172a',
-    paddingHorizontal: 2,
-    paddingVertical: 8,
+    paddingHorizontal: 0,
+    paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center'
   },
   keyText: {
     color: '#e2e8f0',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: 21,
+    lineHeight: 24
   },
   actionKey: {
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#166534',
     backgroundColor: '#14532d',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 9,
     alignItems: 'center',
     justifyContent: 'center'
   },
   actionKeyWide: {
-    minWidth: 58
+    minWidth: 62
   },
   actionKeySpace: {
     flex: 1
   },
   actionText: {
     color: '#dcfce7',
-    fontWeight: '700'
+    fontWeight: '800',
+    fontSize: 16
   }
 });
