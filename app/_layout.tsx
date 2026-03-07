@@ -49,15 +49,20 @@ export default function RootLayout() {
       window.location.reload();
     };
 
+    let updateTimer: ReturnType<typeof setInterval> | null = null;
+
+    const syncWaitingWorker = (registration: ServiceWorkerRegistration) => {
+      if (registration.waiting) {
+        setWaitingWorker(registration.waiting);
+        setUpdateReady(true);
+      }
+    };
+
     const start = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/service-worker.js');
         registration.update().catch(() => {});
-
-        if (registration.waiting) {
-          setWaitingWorker(registration.waiting);
-          setUpdateReady(true);
-        }
+        syncWaitingWorker(registration);
 
         registration.addEventListener('updatefound', () => {
           const installing = registration.installing;
@@ -69,6 +74,11 @@ export default function RootLayout() {
             }
           });
         });
+
+        updateTimer = setInterval(() => {
+          registration.update().catch(() => {});
+          syncWaitingWorker(registration);
+        }, 60000);
       } catch {
         // Ignore registration errors in non-supporting environments.
       }
@@ -79,6 +89,9 @@ export default function RootLayout() {
 
     return () => {
       navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+      if (updateTimer) {
+        clearInterval(updateTimer);
+      }
     };
   }, []);
 

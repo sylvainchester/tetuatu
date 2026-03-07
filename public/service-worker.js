@@ -1,11 +1,10 @@
-const CACHE_NAME = 'coinche-pwa-v2';
+const CACHE_NAME = 'tetuatu-pwa-v3';
 const PRECACHE_URLS = ['/', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_URLS))
   );
-  self.skipWaiting();
 });
 
 self.addEventListener('message', (event) => {
@@ -33,6 +32,10 @@ self.addEventListener('fetch', (event) => {
   }
 
   const url = new URL(event.request.url);
+  if (url.pathname === '/service-worker.js' || url.pathname.startsWith('/api/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
 
   if (event.request.mode === 'navigate') {
     event.respondWith(
