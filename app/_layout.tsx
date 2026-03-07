@@ -77,6 +77,7 @@ export default function RootLayout() {
         setWaitingWorker(registration.waiting);
         setUpdateReady(true);
       } else {
+        setUpdateReady(false);
         setWaitingWorker(null);
       }
     };
