@@ -8,6 +8,19 @@ const {
 const { applyCors, handlePreflight } = require('../_lib/cors');
 const { sendPushToUsers } = require('../_lib/pushSender');
 
+function parseTimestamp(value) {
+  const ts = Date.parse(String(value || ''));
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function hasNewStudentSubmission(payload) {
+  const submittedAt = parseTimestamp(payload?.correction_submitted_at);
+  const reviewedAt = parseTimestamp(payload?.prof_reviewed_at);
+  if (!submittedAt) return false;
+  if (!reviewedAt) return true;
+  return submittedAt > reviewedAt;
+}
+
 module.exports = async function handler(req, res) {
   if (handlePreflight(req, res)) return;
   applyCors(req, res);
@@ -43,9 +56,18 @@ module.exports = async function handler(req, res) {
   if (existingError) return json(res, 500, { error: existingError.message || 'attempt_lookup_failed' });
   const existing = (existingRows || [])[0];
   if (!existing) return json(res, 404, { error: 'attempt_not_found' });
+  const existingPayload = existing.payload || {};
+  if (existing.test_id === 'test11') {
+    if (existingPayload.prof_decision === 'correct') {
+      return json(res, 409, { error: 'review_locked_final' });
+    }
+    if (existingPayload.prof_decision === 'a_corriger' && !hasNewStudentSubmission(existingPayload)) {
+      return json(res, 409, { error: 'awaiting_student_correction' });
+    }
+  }
 
   const payload = {
-    ...(existing.payload || {}),
+    ...existingPayload,
     prof_comment: comment,
     prof_decision: decision,
     prof_reviewed_at: new Date().toISOString()

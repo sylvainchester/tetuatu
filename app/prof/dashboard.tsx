@@ -181,6 +181,35 @@ function expectedAnswerForAttempt(attempt: AttemptDetail) {
   return '(non disponible)';
 }
 
+function parseTimestamp(value: any) {
+  const ts = Date.parse(String(value || ''));
+  return Number.isFinite(ts) ? ts : null;
+}
+
+function canReviewRedaction(attempt: AttemptDetail | null) {
+  if (!attempt || attempt.test_id !== 'test11') return true;
+  const payload = attempt.payload || {};
+  if (payload.prof_decision === 'correct') return false;
+  if (payload.prof_decision !== 'a_corriger') return true;
+  const reviewedAt = parseTimestamp(payload.prof_reviewed_at);
+  const submittedAt = parseTimestamp(payload.correction_submitted_at);
+  if (!submittedAt) return false;
+  if (!reviewedAt) return true;
+  return submittedAt > reviewedAt;
+}
+
+function redactionReviewLockReason(attempt: AttemptDetail | null) {
+  if (!attempt || attempt.test_id !== 'test11') return '';
+  const payload = attempt.payload || {};
+  if (payload.prof_decision === 'correct') {
+    return 'Validation finale deja faite.';
+  }
+  if (payload.prof_decision === 'a_corriger' && !canReviewRedaction(attempt)) {
+    return 'En attente d une nouvelle version eleve.';
+  }
+  return '';
+}
+
 export default function ProfDashboardScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -228,6 +257,10 @@ export default function ProfDashboardScreen() {
 
   async function submitReview(decision: 'correct' | 'a_corriger') {
     if (!selected) return;
+    if (selected.test_id === 'test11' && !canReviewRedaction(selected)) {
+      setReviewInfo(redactionReviewLockReason(selected) || 'En attente de correction eleve.');
+      return;
+    }
     const currentId = selected.id;
     setReviewSaving(true);
     setReviewInfo('');
@@ -289,6 +322,8 @@ export default function ProfDashboardScreen() {
       return true;
     });
   }, [attempts, studentFilter, testFilter]);
+  const redactionCanReview = canReviewRedaction(selected);
+  const redactionLockReason = redactionReviewLockReason(selected);
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -415,7 +450,8 @@ export default function ProfDashboardScreen() {
                         value={reviewComment}
                         onChangeText={setReviewComment}
                         multiline
-                        style={styles.reviewInput}
+                        editable={redactionCanReview && !reviewSaving}
+                        style={[styles.reviewInput, (!redactionCanReview || reviewSaving) && styles.readOnlyInput]}
                         placeholder="Commentaire..."
                         placeholderTextColor="#64748b"
                       />
@@ -432,20 +468,29 @@ export default function ProfDashboardScreen() {
 
                       <View style={styles.reviewButtonsRow}>
                         <Pressable
-                          style={[styles.reviewDecisionButton, styles.reviewDecisionCorrect, reviewSaving && styles.buttonDisabled]}
-                          disabled={reviewSaving}
+                          style={[
+                            styles.reviewDecisionButton,
+                            styles.reviewDecisionCorrect,
+                            (!redactionCanReview || reviewSaving) && styles.buttonDisabled
+                          ]}
+                          disabled={!redactionCanReview || reviewSaving}
                           onPress={() => submitReview('correct')}
                         >
                           <Text style={styles.reviewDecisionText}>Correct</Text>
                         </Pressable>
                         <Pressable
-                          style={[styles.reviewDecisionButton, styles.reviewDecisionFix, reviewSaving && styles.buttonDisabled]}
-                          disabled={reviewSaving}
+                          style={[
+                            styles.reviewDecisionButton,
+                            styles.reviewDecisionFix,
+                            (!redactionCanReview || reviewSaving) && styles.buttonDisabled
+                          ]}
+                          disabled={!redactionCanReview || reviewSaving}
                           onPress={() => submitReview('a_corriger')}
                         >
                           <Text style={styles.reviewDecisionText}>A corriger</Text>
                         </Pressable>
                       </View>
+                      {redactionLockReason ? <Text style={styles.muted}>{redactionLockReason}</Text> : null}
                       {reviewInfo ? <Text style={styles.muted}>{reviewInfo}</Text> : null}
                     </View>
                   ) : (

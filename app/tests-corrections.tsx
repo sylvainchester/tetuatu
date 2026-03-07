@@ -227,7 +227,8 @@ export default function StudentCorrectionsScreen() {
             ...selected.payload,
             correction_source_id: selected.id,
             correction_text: answer,
-            correction_words: words
+            correction_words: words,
+            correction_submitted_at: new Date().toISOString()
           }
         });
         setSubmittedOnce(true);
