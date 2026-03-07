@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { Modal, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 
 type VirtualKeyboardInputProps = {
   value: string;
@@ -57,47 +57,59 @@ export default function VirtualKeyboardInput({
         <Text style={[styles.inputText, !value && styles.placeholder]}>{value || placeholder || ''}</Text>
       </Pressable>
 
-      {!disabled && open ? (
-        <View style={styles.keyboard}>
-          {rows.map((row, index) => (
-            <View key={`letters-${index}`} style={styles.row}>
-              {row.map((char) => (
-                <Pressable key={`${index}-${char}`} style={styles.key} onPress={() => append(char)}>
-                  <Text style={styles.keyText}>{char}</Text>
-                </Pressable>
-              ))}
+      <Modal visible={!disabled && open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalDismissZone} onPress={() => setOpen(false)} />
+          <View style={styles.keyboardSheet}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.sheetTitle}>Clavier</Text>
+              <Pressable onPress={() => setOpen(false)}>
+                <Text style={styles.sheetClose}>Fermer</Text>
+              </Pressable>
             </View>
-          ))}
 
-          <View style={styles.row}>
-            {SYMBOL_ROW.map((char) => (
-              <Pressable key={`symbol-${char}`} style={styles.key} onPress={() => append(char)}>
-                <Text style={styles.keyText}>{char}</Text>
-              </Pressable>
-            ))}
-          </View>
+            <View style={styles.keyboard}>
+              {rows.map((row, index) => (
+                <View key={`letters-${index}`} style={styles.row}>
+                  {row.map((char) => (
+                    <Pressable key={`${index}-${char}`} style={styles.key} onPress={() => append(char)}>
+                      <Text style={styles.keyText}>{char}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ))}
 
-          <View style={styles.row}>
-            <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => setUpper((prev) => !prev)}>
-              <Text style={styles.actionText}>{upper ? 'Min' : 'Maj'}</Text>
-            </Pressable>
-            <Pressable style={[styles.actionKey, styles.actionKeySpace]} onPress={() => append(' ')}>
-              <Text style={styles.actionText}>Espace</Text>
-            </Pressable>
-            {multiline ? (
-              <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => append('\n')}>
-                <Text style={styles.actionText}>Retour</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={backspace}>
-              <Text style={styles.actionText}>Suppr</Text>
-            </Pressable>
-            <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => onChangeText('')}>
-              <Text style={styles.actionText}>Effacer</Text>
-            </Pressable>
+              <View style={styles.row}>
+                {SYMBOL_ROW.map((char) => (
+                  <Pressable key={`symbol-${char}`} style={styles.key} onPress={() => append(char)}>
+                    <Text style={styles.keyText}>{char}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={styles.row}>
+                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => setUpper((prev) => !prev)}>
+                  <Text style={styles.actionText}>{upper ? 'Min' : 'Maj'}</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeySpace]} onPress={() => append(' ')}>
+                  <Text style={styles.actionText}>Espace</Text>
+                </Pressable>
+                {multiline ? (
+                  <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => append('\n')}>
+                    <Text style={styles.actionText}>Retour</Text>
+                  </Pressable>
+                ) : null}
+                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={backspace}>
+                  <Text style={styles.actionText}>Suppr</Text>
+                </Pressable>
+                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => onChangeText('')}>
+                  <Text style={styles.actionText}>Effacer</Text>
+                </Pressable>
+              </View>
+            </View>
           </View>
         </View>
-      ) : null}
+      </Modal>
     </View>
   );
 }
@@ -131,12 +143,44 @@ const styles = StyleSheet.create({
   placeholder: {
     color: '#64748b'
   },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(2, 6, 23, 0.28)',
+    justifyContent: 'flex-end'
+  },
+  modalDismissZone: {
+    flex: 1
+  },
+  keyboardSheet: {
+    width: '100%',
+    alignSelf: 'stretch',
+    backgroundColor: '#020617',
+    borderTopWidth: 1,
+    borderTopColor: '#1f2937',
+    padding: 8,
+    paddingBottom: 12
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    paddingBottom: 8
+  },
+  sheetTitle: {
+    color: '#cbd5e1',
+    fontWeight: '700'
+  },
+  sheetClose: {
+    color: '#e2e8f0',
+    fontWeight: '700'
+  },
   keyboard: {
     borderWidth: 1,
     borderColor: '#1f2937',
     borderRadius: 12,
-    padding: 8,
-    backgroundColor: '#020617',
+    padding: 6,
+    backgroundColor: '#0b1220',
     gap: 6,
     width: '100%',
     alignSelf: 'stretch'
