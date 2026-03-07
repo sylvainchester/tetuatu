@@ -466,30 +466,32 @@ export default function ProfDashboardScreen() {
                         placeholderTextColor="#64748b"
                       />
 
-                      <View style={styles.reviewButtonsRow}>
-                        <Pressable
-                          style={[
-                            styles.reviewDecisionButton,
-                            styles.reviewDecisionCorrect,
-                            (!redactionCanReview || reviewSaving) && styles.buttonDisabled
-                          ]}
-                          disabled={!redactionCanReview || reviewSaving}
-                          onPress={() => submitReview('correct')}
-                        >
-                          <Text style={styles.reviewDecisionText}>Correct</Text>
-                        </Pressable>
-                        <Pressable
-                          style={[
-                            styles.reviewDecisionButton,
-                            styles.reviewDecisionFix,
-                            (!redactionCanReview || reviewSaving) && styles.buttonDisabled
-                          ]}
-                          disabled={!redactionCanReview || reviewSaving}
-                          onPress={() => submitReview('a_corriger')}
-                        >
-                          <Text style={styles.reviewDecisionText}>A corriger</Text>
-                        </Pressable>
-                      </View>
+                      {redactionCanReview ? (
+                        <View style={styles.reviewButtonsRow}>
+                          <Pressable
+                            style={[
+                              styles.reviewDecisionButton,
+                              styles.reviewDecisionCorrect,
+                              reviewSaving && styles.buttonDisabled
+                            ]}
+                            disabled={reviewSaving}
+                            onPress={() => submitReview('correct')}
+                          >
+                            <Text style={styles.reviewDecisionText}>Correct</Text>
+                          </Pressable>
+                          <Pressable
+                            style={[
+                              styles.reviewDecisionButton,
+                              styles.reviewDecisionFix,
+                              reviewSaving && styles.buttonDisabled
+                            ]}
+                            disabled={reviewSaving}
+                            onPress={() => submitReview('a_corriger')}
+                          >
+                            <Text style={styles.reviewDecisionText}>A corriger</Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
                       {redactionLockReason ? <Text style={styles.muted}>{redactionLockReason}</Text> : null}
                       {reviewInfo ? <Text style={styles.muted}>{reviewInfo}</Text> : null}
                     </View>
