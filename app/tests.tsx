@@ -1580,7 +1580,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f172a',
     color: '#f8fafc',
     paddingHorizontal: 12,
-    paddingVertical: 10
+    paddingVertical: 10,
+    fontSize: 18,
+    lineHeight: 24
   },
   flexInput: {
     flex: 1

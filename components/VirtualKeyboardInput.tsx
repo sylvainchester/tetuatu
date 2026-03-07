@@ -231,7 +231,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start'
   },
   inputText: {
-    color: '#f8fafc'
+    color: '#f8fafc',
+    fontSize: 18,
+    lineHeight: 24
   },
   placeholder: {
     color: '#64748b'
@@ -284,7 +286,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start'
   },
   editorPreviewText: {
-    color: '#f8fafc'
+    color: '#f8fafc',
+    fontSize: 20,
+    lineHeight: 28
   },
   cursorMark: {
     color: '#22c55e',

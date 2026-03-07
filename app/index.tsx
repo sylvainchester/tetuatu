@@ -390,7 +390,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 14,
-    color: '#e2e8f0'
+    color: '#e2e8f0',
+    fontSize: 18,
+    lineHeight: 24
   },
   authError: {
     marginTop: 12,

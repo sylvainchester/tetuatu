@@ -706,7 +706,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 10,
     minHeight: 100,
-    textAlignVertical: 'top'
+    textAlignVertical: 'top',
+    fontSize: 18,
+    lineHeight: 24
   },
   readOnlyInput: {
     opacity: 0.75

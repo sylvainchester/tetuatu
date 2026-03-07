@@ -483,7 +483,9 @@ const styles = StyleSheet.create({
     color: '#f8fafc',
     paddingHorizontal: 12,
     paddingVertical: 10,
-    marginBottom: 8
+    marginBottom: 8,
+    fontSize: 18,
+    lineHeight: 24
   },
   textArea: { minHeight: 120, textAlignVertical: 'top' },
   readOnlyInput: { opacity: 0.75 },
