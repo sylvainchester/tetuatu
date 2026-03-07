@@ -9,11 +9,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
+import VirtualKeyboardInput from '@/components/VirtualKeyboardInput';
 import {
   fetchTest1Verbs,
   fetchTest10DictationByRef,
@@ -666,16 +666,9 @@ function Test1Exercise() {
           <Text style={styles.label}>Reponse</Text>
           <View style={styles.inlineInputRow}>
             <Text style={styles.pronoun}>{round.pronoun}</Text>
-            <TextInput
-              value={answer}
-              onChangeText={setAnswer}
-              placeholder="Ta reponse"
-              placeholderTextColor="#64748b"
-              style={[styles.textInput, styles.flexInput]}
-              autoCapitalize="none"
-              autoCorrect={false}
-              spellCheck={false}
-            />
+            <View style={styles.flexInput}>
+              <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
+            </View>
           </View>
 
           <View style={styles.actionsRow}>
@@ -849,18 +842,13 @@ function Test9Exercise() {
                   disabled={!!result}
                 />
               ) : (
-                <TextInput
+                <VirtualKeyboardInput
                   value={answers[index] || ''}
                   onChangeText={(value) =>
                     setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
                   }
                   placeholder="Reponse"
-                  placeholderTextColor="#64748b"
-                  style={[styles.textInput, styles.flexInput]}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  spellCheck={false}
-                  editable={!result}
+                  disabled={!!result}
                 />
               )}
             </View>
@@ -1117,15 +1105,12 @@ function Test10Exercise() {
                 </Pressable>
               </View>
 
-              <TextInput
+              <VirtualKeyboardInput
                 value={typed}
                 onChangeText={setTyped}
                 placeholder="Tape la phrase entendue"
-                placeholderTextColor="#64748b"
                 multiline
-                style={[styles.textInput, styles.textArea]}
-                autoCorrect={false}
-                spellCheck={false}
+                inputStyle={styles.textArea}
               />
 
               <View style={styles.actionsRow}>
@@ -1293,16 +1278,13 @@ function Test11Exercise() {
           </Text>
           <Text style={styles.promptText}>{current.question}</Text>
 
-          <TextInput
+          <VirtualKeyboardInput
             value={text}
             onChangeText={setText}
             multiline
-            style={[styles.textInput, styles.longTextArea]}
             placeholder="Ecris ta reponse ici..."
-            placeholderTextColor="#64748b"
-            editable={!submitted}
-            autoCorrect={false}
-            spellCheck={false}
+            disabled={submitted}
+            inputStyle={styles.longTextArea}
           />
           <Text style={styles.mutedSmall}>
             Mots: {words}/{current.nombre_mots}

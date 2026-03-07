@@ -81,6 +81,7 @@ export default function ResetScreen() {
             secureTextEntry
             autoCorrect={false}
             spellCheck={false}
+            autoComplete="off"
             value={password}
             onChangeText={setPassword}
             style={styles.input}
@@ -93,6 +94,7 @@ export default function ResetScreen() {
             secureTextEntry
             autoCorrect={false}
             spellCheck={false}
+            autoComplete="off"
             value={confirm}
             onChangeText={setConfirm}
             style={styles.input}

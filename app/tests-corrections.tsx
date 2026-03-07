@@ -2,6 +2,7 @@ import { createElement, useEffect, useMemo, useState } from 'react';
 import { Alert, Modal, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { router } from 'expo-router';
 
+import VirtualKeyboardInput from '@/components/VirtualKeyboardInput';
 import { listStudentCorrections, submitExerciseAttempt } from '@/lib/exerciseApi';
 
 type CorrectionAttempt = {
@@ -333,6 +334,7 @@ export default function StudentCorrectionsScreen() {
                       placeholderTextColor="#64748b"
                       autoCorrect={false}
                       spellCheck={false}
+                      autoComplete="off"
                     />
 
                     <Text style={styles.label}>Commentaire du prof</Text>
@@ -345,6 +347,7 @@ export default function StudentCorrectionsScreen() {
                       placeholderTextColor="#64748b"
                       autoCorrect={false}
                       spellCheck={false}
+                      autoComplete="off"
                     />
 
                     <Text style={styles.label}>Nouvelle version</Text>
@@ -376,16 +379,13 @@ export default function StudentCorrectionsScreen() {
                     })}
                   </View>
                 ) : (
-                  <TextInput
+                  <VirtualKeyboardInput
                     value={answer}
                     onChangeText={setAnswer}
-                    style={[styles.input, selected.test_id === 'test11' && styles.textArea]}
                     multiline={selected.test_id === 'test11'}
                     placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
-                    placeholderTextColor="#64748b"
-                    editable={!submittedOnce}
-                    autoCorrect={false}
-                    spellCheck={false}
+                    disabled={submittedOnce}
+                    inputStyle={selected.test_id === 'test11' ? styles.textArea : undefined}
                   />
                 )}
                 {selected?.test_id === 'test11' ? (
