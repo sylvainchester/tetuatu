@@ -50,11 +50,21 @@ async function sendPushToUsers({ userIds, title, body, data = {} }) {
 
   const webPushReady = setupWebPush();
   const payload = JSON.stringify({ title, body, data });
+  let webDelivered = 0;
+  let webFailed = 0;
+  const webErrors = [];
   if (webPushReady && (subRows || []).length) {
     for (const row of subRows) {
       try {
         await webpush.sendNotification(row.subscription, payload);
+        webDelivered += 1;
       } catch (err) {
+        webFailed += 1;
+        webErrors.push({
+          statusCode: err?.statusCode || null,
+          body: err?.body || err?.message || 'web_push_send_failed',
+          endpoint: String(row.endpoint || '').slice(0, 120)
+        });
         const status = err?.statusCode;
         if (status === 404 || status === 410) {
           await supabaseAdmin.from('web_push_subscriptions').delete().eq('endpoint', row.endpoint);
@@ -65,7 +75,10 @@ async function sendPushToUsers({ userIds, title, body, data = {} }) {
 
   return {
     expoCount: expoTokens.length,
-    webCount: (subRows || []).length
+    webCount: (subRows || []).length,
+    webDelivered,
+    webFailed,
+    webErrors
   };
 }
 

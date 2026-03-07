@@ -109,6 +109,11 @@ function firstIncorrectDictationPhrase(payload: Record<string, any>) {
   return answers.find((item: any) => !item?.exact) || null;
 }
 
+function buildCorrectionTitle(title: string) {
+  const base = String(title || '').replace(/^(correction\s+)+/i, '').trim();
+  return `Correction ${base || 'Exercice'}`.trim();
+}
+
 export default function StudentCorrectionsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -177,7 +182,7 @@ export default function StudentCorrectionsScreen() {
         const ok = normalize(answer) === normalize(expected);
         await submitExerciseAttempt({
           testId: selected.test_id,
-          title: `Correction ${selected.title}`,
+          title: buildCorrectionTitle(selected.title),
           summary: ok ? 'Correct' : 'A corriger',
           score: ok ? 1 : 0,
           payload: {
@@ -199,7 +204,7 @@ export default function StudentCorrectionsScreen() {
         const score = checks.length ? checks.filter(Boolean).length / checks.length : 0;
         await submitExerciseAttempt({
           testId: selected.test_id,
-          title: `Correction ${selected.title}`,
+          title: buildCorrectionTitle(selected.title),
           summary: ok ? 'Correct' : 'A corriger',
           score,
           payload: {
@@ -220,7 +225,7 @@ export default function StudentCorrectionsScreen() {
         const ok = words >= minimum;
         await submitExerciseAttempt({
           testId: selected.test_id,
-          title: `Correction ${selected.title}`,
+          title: buildCorrectionTitle(selected.title),
           summary: ok ? 'Correct' : 'A corriger',
           score: minimum > 0 ? Math.min(1, words / minimum) : 0,
           payload: {

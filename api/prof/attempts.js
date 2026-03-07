@@ -7,7 +7,7 @@ const {
 const { applyCors, handlePreflight } = require('../_lib/cors');
 
 function normalizeTitle(title) {
-  return String(title || '').replace(/^correction\s+/i, '').trim();
+  return String(title || '').replace(/^(correction\s+)+/i, '').trim();
 }
 
 function buildExerciseKey(row) {
