@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 
 type VirtualKeyboardInputProps = {
@@ -30,6 +30,13 @@ export default function VirtualKeyboardInput({
 }: VirtualKeyboardInputProps) {
   const [upper, setUpper] = useState(false);
   const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    if (!open) {
+      setDraft(value);
+    }
+  }, [open, value]);
 
   const rows = useMemo(
     () =>
@@ -40,32 +47,48 @@ export default function VirtualKeyboardInput({
   );
 
   function append(char: string) {
-    onChangeText(`${value}${char}`);
+    setDraft((prev) => `${prev}${char}`);
   }
 
   function backspace() {
-    onChangeText(value.slice(0, -1));
+    setDraft((prev) => prev.slice(0, -1));
+  }
+
+  function openKeyboard() {
+    setDraft(value);
+    setOpen(true);
+  }
+
+  function closeKeyboard() {
+    onChangeText(draft);
+    setOpen(false);
   }
 
   return (
     <View style={[styles.container, containerStyle]}>
       <Pressable
         style={[styles.input, multiline && styles.inputMultiline, disabled && styles.inputDisabled, inputStyle]}
-        onPress={() => setOpen((prev) => !prev)}
+        onPress={openKeyboard}
         disabled={!!disabled}
       >
         <Text style={[styles.inputText, !value && styles.placeholder]}>{value || placeholder || ''}</Text>
       </Pressable>
 
-      <Modal visible={!disabled && open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+      <Modal visible={!disabled && open} transparent animationType="slide" onRequestClose={closeKeyboard}>
         <View style={styles.modalBackdrop}>
-          <Pressable style={styles.modalDismissZone} onPress={() => setOpen(false)} />
+          <Pressable style={styles.modalDismissZone} onPress={closeKeyboard} />
           <View style={styles.keyboardSheet}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>Clavier</Text>
-              <Pressable onPress={() => setOpen(false)}>
+              <Pressable onPress={closeKeyboard}>
                 <Text style={styles.sheetClose}>Fermer</Text>
               </Pressable>
+            </View>
+
+            <View style={[styles.editorPreview, multiline && styles.editorPreviewMultiline]}>
+              <Text style={[styles.editorPreviewText, !draft && styles.placeholder]}>
+                {draft || placeholder || ''}
+              </Text>
             </View>
 
             <View style={styles.keyboard}>
@@ -102,7 +125,7 @@ export default function VirtualKeyboardInput({
                 <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={backspace}>
                   <Text style={styles.actionText}>Suppr</Text>
                 </Pressable>
-                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => onChangeText('')}>
+                <Pressable style={[styles.actionKey, styles.actionKeyWide]} onPress={() => setDraft('')}>
                   <Text style={styles.actionText}>Effacer</Text>
                 </Pressable>
               </View>
@@ -174,6 +197,24 @@ const styles = StyleSheet.create({
   sheetClose: {
     color: '#e2e8f0',
     fontWeight: '700'
+  },
+  editorPreview: {
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    backgroundColor: '#0f172a',
+    minHeight: 52,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 8,
+    justifyContent: 'center'
+  },
+  editorPreviewMultiline: {
+    minHeight: 110,
+    justifyContent: 'flex-start'
+  },
+  editorPreviewText: {
+    color: '#f8fafc'
   },
   keyboard: {
     borderWidth: 1,
