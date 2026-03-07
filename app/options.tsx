@@ -139,7 +139,7 @@ export default function OptionsScreen() {
 
         {!loading && !entry ? (
           <View style={styles.block}>
-            <Text style={styles.error}>Acces refuse: ton email n est pas dans la whitelist.</Text>
+            <Text style={styles.error}>Acces refuse: profil non autorise.</Text>
           </View>
         ) : null}
 
@@ -147,14 +147,7 @@ export default function OptionsScreen() {
           <View style={styles.block}>
             <Text style={styles.label}>Ton role</Text>
             <Text style={styles.value}>{entry.role === 'admin' ? 'Admin' : 'Eleve'}</Text>
-            <Text style={styles.label}>Email</Text>
-            <Text style={styles.value}>{entry.email}</Text>
-            {entry.role === 'eleve' ? (
-              <>
-                <Text style={styles.label}>Prof</Text>
-                <Text style={styles.value}>{entry.teacher_email || '-'}</Text>
-              </>
-            ) : null}
+            <Text style={styles.muted}>Les identites affichent les profils, pas les emails.</Text>
           </View>
         ) : null}
 
@@ -210,9 +203,9 @@ export default function OptionsScreen() {
           <View style={styles.block}>
             <Text style={styles.sectionTitle}>Mes eleves</Text>
             {!students.length ? <Text style={styles.muted}>Aucun eleve pour le moment.</Text> : null}
-            {students.map((student) => (
+            {students.map((student, index) => (
               <View key={student.id} style={styles.studentRow}>
-                <Text style={styles.studentEmail}>{student.email}</Text>
+                <Text style={styles.studentEmail}>Eleve {index + 1}</Text>
                 <Text style={styles.studentMeta}>{student.created_at.slice(0, 10)}</Text>
               </View>
             ))}

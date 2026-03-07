@@ -7,7 +7,6 @@ import { fetchProfAttempt, listProfAttempts, markProfAttemptRead, submitProfRevi
 type AttemptSummary = {
   id: string;
   student_user_id: string;
-  student_email: string;
   student_username: string;
   exercise_key?: string;
   test_id: string;
@@ -297,9 +296,7 @@ export default function ProfDashboardScreen() {
   }
 
   const studentOptions = useMemo(() => {
-    const values = Array.from(
-      new Set(attempts.map((item) => (item.student_username || item.student_email || '').trim()).filter(Boolean))
-    );
+    const values = Array.from(new Set(attempts.map((item) => (item.student_username || '').trim()).filter(Boolean)));
     return [{ label: 'Tous les eleves', value: 'all' }, ...values.map((value) => ({ label: value, value }))];
   }, [attempts]);
 
@@ -316,7 +313,7 @@ export default function ProfDashboardScreen() {
 
   const filteredAttempts = useMemo(() => {
     return attempts.filter((attempt) => {
-      const studentValue = (attempt.student_username || attempt.student_email || '').trim();
+      const studentValue = (attempt.student_username || '').trim();
       if (studentFilter !== 'all' && studentValue !== studentFilter) return false;
       if (testFilter !== 'all' && attempt.test_id !== testFilter) return false;
       return true;
@@ -362,7 +359,7 @@ export default function ProfDashboardScreen() {
                 !!attempt.prof_read_at &&
                 !!baseline &&
                 new Date(attempt.prof_read_at).getTime() >= new Date(baseline).getTime();
-              const studentLabel = attempt.student_username || attempt.student_email;
+              const studentLabel = attempt.student_username || 'Profil inconnu';
               const status = attemptStatus(attempt);
               const statusLabel =
                 status === 'correct_first_try' ? 'CORRECT' : status === 'corrected' ? 'CORRIGÉ' : 'A CORRIGER';
@@ -431,7 +428,7 @@ export default function ProfDashboardScreen() {
                   {selected.test_id === 'test11' ? (
                     <View style={styles.detailGroup}>
                       <Text style={styles.detailLine}>
-                        Eleve: {(attempts.find((item) => item.id === selected.id)?.student_username || '') || selected.student_email}
+                        Eleve: {(attempts.find((item) => item.id === selected.id)?.student_username || '') || 'Profil inconnu'}
                       </Text>
                       <Text style={styles.detailLine}>Date: {prettyDate(selected.created_at)}</Text>
 
@@ -498,7 +495,7 @@ export default function ProfDashboardScreen() {
                   ) : (
                     <>
                       <Text style={styles.detailLine}>
-                        Eleve: {(attempts.find((item) => item.id === selected.id)?.student_username || '') || selected.student_email}
+                        Eleve: {(attempts.find((item) => item.id === selected.id)?.student_username || '') || 'Profil inconnu'}
                       </Text>
                       <Text style={styles.detailLine}>Exercice: {selected.title}</Text>
                       <Text style={styles.detailLine}>Test: {selected.test_id}</Text>

@@ -70,6 +70,20 @@ module.exports = async function handler(req, res) {
     }
   }
 
+  let studentUsername = '';
+  try {
+    const { data: profileRows, error: profileError } = await supabaseAdmin
+      .from('profiles')
+      .select('username')
+      .eq('id', user.id)
+      .limit(1);
+    if (!profileError) {
+      studentUsername = String(profileRows?.[0]?.username || '').trim();
+    }
+  } catch (_err) {
+    // Ignore profile lookup errors for notification display name.
+  }
+
   const attemptPayload = {
     student_user_id: user.id,
     student_email: studentEmail,
@@ -134,14 +148,15 @@ module.exports = async function handler(req, res) {
 
   if (teacherUserId) {
     try {
+      const studentLabel = studentUsername || 'Un eleve';
       await sendPushToUsers({
         userIds: [teacherUserId],
         title: 'Nouvel exercice eleve',
-        body: `${studentEmail} a termine ${title}`,
+        body: `${studentLabel} a termine ${title}`,
         data: {
           type: 'exercise_attempt',
           attemptId,
-          studentEmail,
+          studentUserId: user.id,
           testId
         }
       });
