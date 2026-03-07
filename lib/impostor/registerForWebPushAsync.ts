@@ -17,7 +17,7 @@ function urlBase64ToUint8Array(base64String: string) {
     return outputArray;
 }
 
-export default async function registerForWebPushAsync() {
+export default async function registerForWebPushAsync(forceRenew = false) {
     if (Platform.OS !== 'web') return null;
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null;
 
@@ -26,7 +26,16 @@ export default async function registerForWebPushAsync() {
 
     const registration = await navigator.serviceWorker.register('/service-worker.js');
     const ready = await navigator.serviceWorker.ready;
-    const existing = await ready.pushManager.getSubscription();
+    let existing = await ready.pushManager.getSubscription();
+
+    if (existing && forceRenew) {
+        try {
+            await existing.unsubscribe();
+        } catch {
+            // Continue even if unsubscribe fails; we'll attempt a fresh subscribe.
+        }
+        existing = null;
+    }
 
     let subscription = existing;
     if (!subscription) {

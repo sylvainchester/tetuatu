@@ -103,7 +103,7 @@ export default function OptionsScreen() {
     setNotifError('');
     setNotifInfo('');
     try {
-      const subscription = await registerForWebPushAsync();
+      const subscription = await registerForWebPushAsync(true);
       if (Platform.OS === 'web' && typeof Notification !== 'undefined') {
         setNotifPermission(Notification.permission as any);
       }
