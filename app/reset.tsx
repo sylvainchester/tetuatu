@@ -10,6 +10,7 @@ export default function ResetScreen() {
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
   const [ready, setReady] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     function readAuthParamsFromUrl(rawUrl: string | null) {
@@ -77,28 +78,38 @@ export default function ResetScreen() {
 
         <View style={styles.field}>
           <Text style={styles.label}>Mot de passe</Text>
-          <TextInput
-            secureTextEntry
-            autoCorrect={false}
-            spellCheck={false}
-            autoComplete="off"
-            value={password}
-            onChangeText={setPassword}
-            style={styles.input}
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              secureTextEntry={!showPassword}
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              value={password}
+              onChangeText={setPassword}
+              style={[styles.input, styles.passwordInput]}
+            />
+            <Pressable style={styles.passwordToggle} onPress={() => setShowPassword((prev) => !prev)}>
+              <Text style={styles.passwordToggleText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         <View style={styles.field}>
           <Text style={styles.label}>Confirmation</Text>
-          <TextInput
-            secureTextEntry
-            autoCorrect={false}
-            spellCheck={false}
-            autoComplete="off"
-            value={confirm}
-            onChangeText={setConfirm}
-            style={styles.input}
-          />
+          <View style={styles.passwordRow}>
+            <TextInput
+              secureTextEntry={!showPassword}
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              value={confirm}
+              onChangeText={setConfirm}
+              style={[styles.input, styles.passwordInput]}
+            />
+            <Pressable style={styles.passwordToggle} onPress={() => setShowPassword((prev) => !prev)}>
+              <Text style={styles.passwordToggleText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
+            </Pressable>
+          </View>
         </View>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -155,6 +166,28 @@ const styles = StyleSheet.create({
     color: '#e2e8f0',
     fontSize: 18,
     lineHeight: 24
+  },
+  passwordRow: {
+    marginTop: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  passwordInput: {
+    marginTop: 0,
+    flex: 1
+  },
+  passwordToggle: {
+    borderWidth: 1,
+    borderColor: '#334155',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    backgroundColor: '#0b1220'
+  },
+  passwordToggleText: {
+    color: '#cbd5e1',
+    fontWeight: '700'
   },
   error: {
     marginTop: 12,
