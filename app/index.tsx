@@ -316,7 +316,7 @@ export default function HubScreen() {
       </View>
 
       <View style={styles.hubGrid}>
-        {accessRole !== 'eleve' ? (
+        {accessRole === 'admin' ? (
           <>
             <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
               <Text style={styles.cardTitle}>Coinche</Text>

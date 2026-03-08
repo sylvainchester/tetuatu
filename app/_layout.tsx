@@ -176,6 +176,19 @@ export default function RootLayout() {
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=20260307" />
         <meta name="theme-color" content="#E6F4FE" />
+        <style>{`
+          html, body, #root {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background: #0b0f1a;
+          }
+          body {
+            overflow: hidden;
+            overscroll-behavior: none;
+          }
+        `}</style>
       </Head>
       {Platform.OS === 'web' && updateReady ? (
         <View style={styles.updateBanner}>
