@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 
 import VirtualKeyboardInput from '@/components/VirtualKeyboardInput';
 import { listStudentCorrections, submitExerciseAttempt } from '@/lib/exerciseApi';
+import { supabase } from '@/lib/supabase';
 
 type CorrectionAttempt = {
   id: string;
@@ -126,6 +127,7 @@ export default function StudentCorrectionsScreen() {
   const [pageInfo, setPageInfo] = useState('');
   const [submittedOnce, setSubmittedOnce] = useState(false);
   const [lastIsCorrect, setLastIsCorrect] = useState<boolean | null>(null);
+  const [isJojo, setIsJojo] = useState(false);
   const correctionMinimumWords = Number(selected?.payload?.minimumWords || 0);
   const correctionWords = selected?.test_id === 'test11' ? wordCount(answer) : 0;
   const canSubmitCorrection = selected?.test_id === 'test11' ? correctionWords >= correctionMinimumWords : true;
@@ -145,6 +147,29 @@ export default function StudentCorrectionsScreen() {
 
   useEffect(() => {
     reload();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data.session?.user?.id;
+        if (!userId) return;
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', userId)
+          .limit(1);
+        const username = String(profiles?.[0]?.username || '').trim().toLowerCase();
+        if (!cancelled) setIsJojo(username === 'jojo');
+      } catch {
+        if (!cancelled) setIsJojo(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const expectedForSelected = useMemo(() => {
@@ -385,14 +410,30 @@ export default function StudentCorrectionsScreen() {
                     })}
                   </View>
                 ) : (
-                  <VirtualKeyboardInput
-                    value={answer}
-                    onChangeText={setAnswer}
-                    multiline={selected.test_id === 'test11'}
-                    placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
-                    disabled={submittedOnce}
-                    inputStyle={selected.test_id === 'test11' ? styles.textArea : undefined}
-                  />
+                  isJojo ? (
+                    <TextInput
+                      value={answer}
+                      onChangeText={setAnswer}
+                      style={[styles.input, selected.test_id === 'test11' && styles.textArea]}
+                      multiline={selected.test_id === 'test11'}
+                      placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
+                      placeholderTextColor="#64748b"
+                      editable={!submittedOnce}
+                      autoCorrect={false}
+                      spellCheck={false}
+                      autoComplete="off"
+                      keyboardType={selected.test_id === 'test11' ? 'default' : 'visible-password'}
+                    />
+                  ) : (
+                    <VirtualKeyboardInput
+                      value={answer}
+                      onChangeText={setAnswer}
+                      multiline={selected.test_id === 'test11'}
+                      placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
+                      disabled={submittedOnce}
+                      inputStyle={selected.test_id === 'test11' ? styles.textArea : undefined}
+                    />
+                  )
                 )}
                 {selected?.test_id === 'test11' ? (
                   <Text style={styles.muted}>

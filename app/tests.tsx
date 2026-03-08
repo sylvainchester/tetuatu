@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -220,6 +221,35 @@ function latestCorrectionForAttempt(attempt: StudentHistoryAttempt) {
 
 function formatAttemptDate(value: string) {
   return value.slice(0, 19).replace('T', ' ');
+}
+
+function useIsJojoProfile() {
+  const [isJojo, setIsJojo] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const userId = data.session?.user?.id;
+        if (!userId) return;
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', userId)
+          .limit(1);
+        const username = String(profiles?.[0]?.username || '').trim().toLowerCase();
+        if (!cancelled) setIsJojo(username === 'jojo');
+      } catch {
+        if (!cancelled) setIsJojo(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return isJojo;
 }
 
 function StudentHistoryBlock({ testId }: { testId: ExerciseId }) {
@@ -573,6 +603,7 @@ function Chips({
 }
 
 function Test1Exercise() {
+  const isJojo = useIsJojoProfile();
   const [verbs, setVerbs] = useState<Test1VerbRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -665,7 +696,22 @@ function Test1Exercise() {
 
           <Text style={styles.label}>Reponse</Text>
           <Text style={styles.pronoun}>{round.pronoun}</Text>
-          <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
+          {isJojo ? (
+            <TextInput
+              value={answer}
+              onChangeText={setAnswer}
+              placeholder="Ta reponse"
+              placeholderTextColor="#64748b"
+              style={styles.textInput}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              keyboardType="visible-password"
+            />
+          ) : (
+            <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
+          )}
 
           <View style={styles.actionsRow}>
             <Pressable
@@ -719,6 +765,7 @@ function Test1Exercise() {
 }
 
 function Test9Exercise() {
+  const isJojo = useIsJojoProfile();
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [rows, setRows] = useState<Test9Row[]>([]);
@@ -838,14 +885,32 @@ function Test9Exercise() {
                   disabled={!!result}
                 />
               ) : (
-                <VirtualKeyboardInput
-                  value={answers[index] || ''}
-                  onChangeText={(value) =>
-                    setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
-                  }
-                  placeholder="Reponse"
-                  disabled={!!result}
-                />
+                isJojo ? (
+                  <TextInput
+                    value={answers[index] || ''}
+                    onChangeText={(value) =>
+                      setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
+                    }
+                    placeholder="Reponse"
+                    placeholderTextColor="#64748b"
+                    style={styles.textInput}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="off"
+                    keyboardType="visible-password"
+                    editable={!result}
+                  />
+                ) : (
+                  <VirtualKeyboardInput
+                    value={answers[index] || ''}
+                    onChangeText={(value) =>
+                      setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
+                    }
+                    placeholder="Reponse"
+                    disabled={!!result}
+                  />
+                )
               )}
             </View>
           ))}
@@ -912,6 +977,7 @@ function Test9Exercise() {
 }
 
 function Test10Exercise() {
+  const isJojo = useIsJojoProfile();
   const langue: 'FR' | 'EN' = 'FR';
   const [levels, setLevels] = useState<string[]>([]);
   const [niveau, setNiveau] = useState('');
@@ -1101,13 +1167,27 @@ function Test10Exercise() {
                 </Pressable>
               </View>
 
-              <VirtualKeyboardInput
-                value={typed}
-                onChangeText={setTyped}
-                placeholder="Tape la phrase entendue"
-                multiline
-                inputStyle={styles.textArea}
-              />
+              {isJojo ? (
+                <TextInput
+                  value={typed}
+                  onChangeText={setTyped}
+                  placeholder="Tape la phrase entendue"
+                  placeholderTextColor="#64748b"
+                  multiline
+                  style={[styles.textInput, styles.textArea]}
+                  autoCorrect={false}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              ) : (
+                <VirtualKeyboardInput
+                  value={typed}
+                  onChangeText={setTyped}
+                  placeholder="Tape la phrase entendue"
+                  multiline
+                  inputStyle={styles.textArea}
+                />
+              )}
 
               <View style={styles.actionsRow}>
                 <Pressable
@@ -1175,6 +1255,7 @@ function Test10Exercise() {
 }
 
 function Test11Exercise() {
+  const isJojo = useIsJojoProfile();
   const langue: 'fr' = 'fr';
   const [categories, setCategories] = useState<string[]>([]);
   const [categorie, setCategorie] = useState('');
@@ -1274,14 +1355,29 @@ function Test11Exercise() {
           </Text>
           <Text style={styles.promptText}>{current.question}</Text>
 
-          <VirtualKeyboardInput
-            value={text}
-            onChangeText={setText}
-            multiline
-            placeholder="Ecris ta reponse ici..."
-            disabled={submitted}
-            inputStyle={styles.longTextArea}
-          />
+          {isJojo ? (
+            <TextInput
+              value={text}
+              onChangeText={setText}
+              multiline
+              style={[styles.textInput, styles.longTextArea]}
+              placeholder="Ecris ta reponse ici..."
+              placeholderTextColor="#64748b"
+              editable={!submitted}
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+            />
+          ) : (
+            <VirtualKeyboardInput
+              value={text}
+              onChangeText={setText}
+              multiline
+              placeholder="Ecris ta reponse ici..."
+              disabled={submitted}
+              inputStyle={styles.longTextArea}
+            />
+          )}
           <Text style={styles.mutedSmall}>
             Mots: {words}/{current.nombre_mots}
           </Text>
