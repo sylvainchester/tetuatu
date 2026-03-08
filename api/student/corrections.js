@@ -20,10 +20,10 @@ module.exports = async function handler(req, res) {
     .from('access_whitelist')
     .select('role')
     .eq('email', studentEmail)
-    .eq('role', 'eleve')
     .limit(1);
   if (whitelistError) return json(res, 500, { error: whitelistError.message || 'whitelist_lookup_failed' });
-  if (!(whitelistRows || []).length) return json(res, 403, { error: 'not_student' });
+  const role = String((whitelistRows || [])[0]?.role || '');
+  if (!['eleve', 'admin'].includes(role)) return json(res, 403, { error: 'not_allowed_role' });
 
   const { data, error } = await supabaseAdmin
     .from('exercise_attempts')

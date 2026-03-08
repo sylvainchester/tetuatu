@@ -32,7 +32,6 @@ module.exports = async function handler(req, res) {
     .from('access_whitelist')
     .select('*')
     .eq('email', studentEmail)
-    .eq('role', 'eleve')
     .limit(1);
   if (whitelistError) {
     console.error('[submit] whitelist lookup failed', {
@@ -47,7 +46,10 @@ module.exports = async function handler(req, res) {
     });
   }
   const whitelist = (whitelistRows || [])[0];
-  if (!whitelist) return json(res, 403, { error: 'not_student_or_not_whitelisted' });
+  if (!whitelist) return json(res, 403, { error: 'not_whitelisted' });
+  if (!['eleve', 'admin'].includes(String(whitelist.role || ''))) {
+    return json(res, 403, { error: 'not_allowed_role' });
+  }
 
   let teacherUserId = whitelist.added_by || null;
   const teacherEmail = (whitelist.teacher_email || '').toLowerCase() || null;
