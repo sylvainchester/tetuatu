@@ -228,8 +228,9 @@ export default function HubScreen() {
               placeholder="••••••••"
               placeholderTextColor="#6f7a87"
             />
-            <Pressable style={styles.passwordToggle} onPress={() => setShowPassword((prev) => !prev)}>
-              <Text style={styles.passwordToggleText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
+            <Pressable style={styles.passwordToggleRow} onPress={() => setShowPassword((prev) => !prev)}>
+              <View style={[styles.passwordToggleBox, showPassword && styles.passwordToggleBoxActive]} />
+              <Text style={styles.passwordToggleLabel}>Afficher le mot de passe</Text>
             </Pressable>
           </View>
 
@@ -407,18 +408,29 @@ const styles = StyleSheet.create({
     lineHeight: 24
   },
   passwordToggle: {
+    display: 'none'
+  },
+  passwordToggleRow: {
     marginTop: 8,
-    alignSelf: 'flex-end',
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  passwordToggleBox: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
     borderWidth: 1,
-    borderColor: '#334155',
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
+    borderColor: '#475569',
     backgroundColor: '#0b1220'
   },
-  passwordToggleText: {
-    color: '#cbd5e1',
-    fontWeight: '700'
+  passwordToggleBoxActive: {
+    backgroundColor: '#22c55e',
+    borderColor: '#22c55e'
+  },
+  passwordToggleLabel: {
+    color: '#cbd5e1'
   },
   authError: {
     marginTop: 12,
