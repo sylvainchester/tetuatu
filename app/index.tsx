@@ -217,22 +217,20 @@ export default function HubScreen() {
 
           <View style={styles.authField}>
             <Text style={styles.authLabel}>Mot de passe</Text>
-            <View style={styles.passwordRow}>
-              <TextInput
-                secureTextEntry={!showPassword}
-                autoCorrect={false}
-                spellCheck={false}
-                autoComplete="off"
-                value={form.password}
-                onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
-                style={[styles.authInput, styles.passwordInput]}
-                placeholder="••••••••"
-                placeholderTextColor="#6f7a87"
-              />
-              <Pressable style={styles.passwordToggle} onPress={() => setShowPassword((prev) => !prev)}>
-                <Text style={styles.passwordToggleText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
-              </Pressable>
-            </View>
+            <TextInput
+              secureTextEntry={!showPassword}
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              value={form.password}
+              onChangeText={(value) => setForm((prev) => ({ ...prev, password: value }))}
+              style={styles.authInput}
+              placeholder="••••••••"
+              placeholderTextColor="#6f7a87"
+            />
+            <Pressable style={styles.passwordToggle} onPress={() => setShowPassword((prev) => !prev)}>
+              <Text style={styles.passwordToggleText}>{showPassword ? 'Masquer' : 'Afficher'}</Text>
+            </Pressable>
           </View>
 
           {isRegister ? (
@@ -408,17 +406,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 24
   },
-  passwordRow: {
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  passwordInput: {
-    marginTop: 0,
-    flex: 1
-  },
   passwordToggle: {
+    marginTop: 8,
+    alignSelf: 'flex-end',
     borderWidth: 1,
     borderColor: '#334155',
     borderRadius: 12,
