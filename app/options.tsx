@@ -203,10 +203,12 @@ export default function OptionsScreen() {
           <View style={styles.block}>
             <Text style={styles.sectionTitle}>Mes eleves</Text>
             {!students.length ? <Text style={styles.muted}>Aucun eleve pour le moment.</Text> : null}
-            {students.map((student, index) => (
+            {students.map((student) => (
               <View key={student.id} style={styles.studentRow}>
-                <Text style={styles.studentEmail}>Eleve {index + 1}</Text>
-                <Text style={styles.studentMeta}>{student.created_at.slice(0, 10)}</Text>
+                <Text style={styles.studentEmail}>{student.profile_username || 'Profil inconnu'}</Text>
+                <Text style={styles.studentMeta}>
+                  {student.role === 'admin' ? 'Admin' : 'Eleve'} • {student.created_at.slice(0, 10)}
+                </Text>
               </View>
             ))}
           </View>
