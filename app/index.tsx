@@ -164,8 +164,16 @@ export default function HubScreen() {
 
   async function handleSignOut() {
     setMenuOpen(false);
-    await supabase.auth.signOut();
-    await logoutImpostor();
+    setAuthError('');
+    const [supabaseResult] = await Promise.allSettled([
+      supabase.auth.signOut({ scope: 'local' }),
+      logoutImpostor()
+    ]);
+    if (supabaseResult.status === 'rejected') {
+      setAuthError('Deconnexion impossible. Reessaie.');
+      return;
+    }
+    router.replace('/');
   }
 
   async function handleEnterImpostor() {
