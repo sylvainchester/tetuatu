@@ -177,16 +177,29 @@ export default function RootLayout() {
         <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png?v=20260307" />
         <meta name="theme-color" content="#E6F4FE" />
         <style>{`
+          * {
+            box-sizing: border-box;
+          }
           html, body, #root {
             margin: 0;
             padding: 0;
             width: 100%;
             height: 100%;
             background: #0b0f1a;
+            overflow: hidden !important;
+            overscroll-behavior: none;
+          }
+          html, body, #root {
+            position: fixed;
+            inset: 0;
+          }
+          #root > div {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
           }
           body {
-            overflow: hidden;
-            overscroll-behavior: none;
+            touch-action: none;
           }
         `}</style>
       </Head>

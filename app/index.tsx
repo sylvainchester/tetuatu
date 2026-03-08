@@ -350,9 +350,13 @@ export default function HubScreen() {
 const styles = StyleSheet.create({
   authSafe: {
     flex: 1,
+    width: '100%',
+    maxWidth: '100%',
     backgroundColor: '#0b0f1a',
     justifyContent: 'center',
-    alignItems: 'center'
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    overflow: 'hidden'
   },
   authBackground: {
     ...StyleSheet.absoluteFillObject,
@@ -369,7 +373,8 @@ const styles = StyleSheet.create({
     right: -60
   },
   authCard: {
-    width: '88%',
+    width: '100%',
+    maxWidth: 420,
     backgroundColor: '#111827',
     padding: 24,
     borderRadius: 24,
@@ -463,7 +468,10 @@ const styles = StyleSheet.create({
   },
   hubSafe: {
     flex: 1,
-    backgroundColor: '#0b0f1a'
+    width: '100%',
+    maxWidth: '100%',
+    backgroundColor: '#0b0f1a',
+    overflow: 'hidden'
   },
   hubBackground: {
     ...StyleSheet.absoluteFillObject,
