@@ -697,18 +697,21 @@ function Test1Exercise() {
           <Text style={styles.label}>Reponse</Text>
           <Text style={styles.pronoun}>{round.pronoun}</Text>
           {isJojo ? (
-            <TextInput
-              value={answer}
-              onChangeText={setAnswer}
-              placeholder="Ta reponse"
-              placeholderTextColor="#64748b"
-              style={styles.textInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              spellCheck={false}
-              autoComplete="off"
-              keyboardType="visible-password"
-            />
+            <>
+              <TextInput
+                value={answer}
+                onChangeText={setAnswer}
+                placeholder="Ta reponse"
+                placeholderTextColor="#64748b"
+                style={styles.textInput}
+                autoCapitalize="none"
+                autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
+                secureTextEntry
+              />
+              <Text style={styles.mutedSmall}>Saisie: {answer || '(vide)'}</Text>
+            </>
           ) : (
             <VirtualKeyboardInput value={answer} onChangeText={setAnswer} placeholder="Ta reponse" />
           )}
@@ -886,21 +889,24 @@ function Test9Exercise() {
                 />
               ) : (
                 isJojo ? (
-                  <TextInput
-                    value={answers[index] || ''}
-                    onChangeText={(value) =>
-                      setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
-                    }
-                    placeholder="Reponse"
-                    placeholderTextColor="#64748b"
-                    style={styles.textInput}
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    spellCheck={false}
-                    autoComplete="off"
-                    keyboardType="visible-password"
-                    editable={!result}
-                  />
+                  <>
+                    <TextInput
+                      value={answers[index] || ''}
+                      onChangeText={(value) =>
+                        setAnswers((prev) => prev.map((current, i) => (i === index ? value : current)))
+                      }
+                      placeholder="Reponse"
+                      placeholderTextColor="#64748b"
+                      style={styles.textInput}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      spellCheck={false}
+                      autoComplete="off"
+                      secureTextEntry
+                      editable={!result}
+                    />
+                    <Text style={styles.mutedSmall}>Saisie: {answers[index] || '(vide)'}</Text>
+                  </>
                 ) : (
                   <VirtualKeyboardInput
                     value={answers[index] || ''}
@@ -1168,17 +1174,20 @@ function Test10Exercise() {
               </View>
 
               {isJojo ? (
-                <TextInput
-                  value={typed}
-                  onChangeText={setTyped}
-                  placeholder="Tape la phrase entendue"
-                  placeholderTextColor="#64748b"
-                  multiline
-                  style={[styles.textInput, styles.textArea]}
-                  autoCorrect={false}
-                  spellCheck={false}
-                  autoComplete="off"
-                />
+                <>
+                  <TextInput
+                    value={typed}
+                    onChangeText={setTyped}
+                    placeholder="Tape la phrase entendue"
+                    placeholderTextColor="#64748b"
+                    style={styles.textInput}
+                    autoCorrect={false}
+                    spellCheck={false}
+                    autoComplete="off"
+                    secureTextEntry
+                  />
+                  <Text style={styles.mutedSmall}>Saisie: {typed || '(vide)'}</Text>
+                </>
               ) : (
                 <VirtualKeyboardInput
                   value={typed}
@@ -1255,7 +1264,6 @@ function Test10Exercise() {
 }
 
 function Test11Exercise() {
-  const isJojo = useIsJojoProfile();
   const langue: 'fr' = 'fr';
   const [categories, setCategories] = useState<string[]>([]);
   const [categorie, setCategorie] = useState('');
@@ -1355,29 +1363,14 @@ function Test11Exercise() {
           </Text>
           <Text style={styles.promptText}>{current.question}</Text>
 
-          {isJojo ? (
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              multiline
-              style={[styles.textInput, styles.longTextArea]}
-              placeholder="Ecris ta reponse ici..."
-              placeholderTextColor="#64748b"
-              editable={!submitted}
-              autoCorrect={false}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          ) : (
-            <VirtualKeyboardInput
-              value={text}
-              onChangeText={setText}
-              multiline
-              placeholder="Ecris ta reponse ici..."
-              disabled={submitted}
-              inputStyle={styles.longTextArea}
-            />
-          )}
+          <VirtualKeyboardInput
+            value={text}
+            onChangeText={setText}
+            multiline
+            placeholder="Ecris ta reponse ici..."
+            disabled={submitted}
+            inputStyle={styles.longTextArea}
+          />
           <Text style={styles.mutedSmall}>
             Mots: {words}/{current.nombre_mots}
           </Text>

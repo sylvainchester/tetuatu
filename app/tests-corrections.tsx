@@ -410,20 +410,22 @@ export default function StudentCorrectionsScreen() {
                     })}
                   </View>
                 ) : (
-                  isJojo ? (
-                    <TextInput
-                      value={answer}
-                      onChangeText={setAnswer}
-                      style={[styles.input, selected.test_id === 'test11' && styles.textArea]}
-                      multiline={selected.test_id === 'test11'}
-                      placeholder={selected.test_id === 'test11' ? 'Ecris ta nouvelle version...' : 'Ta reponse'}
-                      placeholderTextColor="#64748b"
-                      editable={!submittedOnce}
-                      autoCorrect={false}
-                      spellCheck={false}
-                      autoComplete="off"
-                      keyboardType={selected.test_id === 'test11' ? 'default' : 'visible-password'}
-                    />
+                  isJojo && selected.test_id !== 'test11' ? (
+                    <>
+                      <TextInput
+                        value={answer}
+                        onChangeText={setAnswer}
+                        style={styles.input}
+                        placeholder="Ta reponse"
+                        placeholderTextColor="#64748b"
+                        editable={!submittedOnce}
+                        autoCorrect={false}
+                        spellCheck={false}
+                        autoComplete="off"
+                        secureTextEntry
+                      />
+                      <Text style={styles.muted}>Saisie: {answer || '(vide)'}</Text>
+                    </>
                   ) : (
                     <VirtualKeyboardInput
                       value={answer}
