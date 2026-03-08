@@ -705,11 +705,13 @@ function Test1Exercise() {
                 placeholderTextColor="#64748b"
                 style={styles.textInput}
                 autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                autoComplete="off"
-                secureTextEntry
-              />
+              autoCorrect={false}
+              spellCheck={false}
+              autoComplete="off"
+              secureTextEntry
+              importantForAutofill="no"
+              textContentType="none"
+            />
               <Text style={styles.mutedSmall}>Saisie: {answer || '(vide)'}</Text>
             </>
           ) : (
@@ -903,6 +905,8 @@ function Test9Exercise() {
                       spellCheck={false}
                       autoComplete="off"
                       secureTextEntry
+                      importantForAutofill="no"
+                      textContentType="none"
                       editable={!result}
                     />
                     <Text style={styles.mutedSmall}>Saisie: {answers[index] || '(vide)'}</Text>
@@ -1185,6 +1189,8 @@ function Test10Exercise() {
                     spellCheck={false}
                     autoComplete="off"
                     secureTextEntry
+                    importantForAutofill="no"
+                    textContentType="none"
                   />
                   <Text style={styles.mutedSmall}>Saisie: {typed || '(vide)'}</Text>
                 </>

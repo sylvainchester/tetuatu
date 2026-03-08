@@ -423,6 +423,8 @@ export default function StudentCorrectionsScreen() {
                         spellCheck={false}
                         autoComplete="off"
                         secureTextEntry
+                        importantForAutofill="no"
+                        textContentType="none"
                       />
                       <Text style={styles.muted}>Saisie: {answer || '(vide)'}</Text>
                     </>
