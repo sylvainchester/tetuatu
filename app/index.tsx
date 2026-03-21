@@ -29,7 +29,7 @@ export default function HubScreen() {
   const [authError, setAuthError] = useState('');
   const [authInfo, setAuthInfo] = useState('');
   const [profileName, setProfileName] = useState('');
-  const [accessRole, setAccessRole] = useState<'admin' | 'manager' | 'member' | 'eleve' | null>(null);
+  const [accessRole, setAccessRole] = useState<'admin' | 'manager' | 'employee' | 'member' | 'eleve' | null>(null);
   const [accessChecked, setAccessChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -126,7 +126,7 @@ export default function HubScreen() {
 
   useEffect(() => {
     if (!accessChecked) return;
-    if (accessRole !== 'manager') return;
+    if (!['manager', 'employee'].includes(accessRole || '')) return;
     router.replace('/reservations');
   }, [accessChecked, accessRole]);
 
@@ -346,12 +346,16 @@ export default function HubScreen() {
             <Text style={styles.loadingText}>Vérification du profil...</Text>
           </View>
         ) : null}
-        {accessChecked && (accessRole === 'admin' || accessRole === 'manager') ? (
+        {accessChecked && ['admin', 'manager', 'employee'].includes(accessRole || '') ? (
           <>
             <Pressable style={[styles.card, styles.cardRental]} onPress={() => router.push('/reservations')}>
               <Text style={styles.cardTitle}>Montegordo</Text>
               <Text style={styles.cardMeta}>
-                {accessRole === 'manager' ? 'Consultation des réservations.' : 'Réservations maison, calendrier et liste.'}
+                {accessRole === 'manager'
+                  ? 'Consultation des réservations.'
+                  : accessRole === 'employee'
+                    ? 'Consultation réservée employé.'
+                    : 'Réservations maison, calendrier et liste.'}
               </Text>
               <View style={styles.cardAction}>
                 <Text style={styles.cardActionText}>Entrer</Text>
@@ -368,7 +372,7 @@ export default function HubScreen() {
             ) : null}
           </>
         ) : null}
-        {accessChecked && (accessRole === 'admin' || accessRole === 'member') ? (
+        {accessChecked && ['admin', 'member'].includes(accessRole || '') ? (
           <>
             <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
               <Text style={styles.cardTitle}>Coinche</Text>
@@ -386,7 +390,7 @@ export default function HubScreen() {
             </Pressable>
           </>
         ) : null}
-        {accessChecked && accessRole !== 'manager' ? (
+        {accessChecked && ['admin', 'member', 'eleve'].includes(accessRole || '') ? (
           <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
             <Text style={styles.cardTitle}>Francais</Text>
             <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>

@@ -61,6 +61,7 @@ type Props = {
   visible: boolean;
   dateISO: string | null;
   readOnly?: boolean;
+  hideCashOnArrival?: boolean;
   texts: RentalPanelTexts;
   onClose: () => void;
   onSaved: () => void;
@@ -87,6 +88,7 @@ export function RentalBookingPanel({
   visible,
   dateISO,
   readOnly = false,
+  hideCashOnArrival = false,
   texts,
   onClose,
   onSaved,
@@ -364,16 +366,18 @@ export function RentalBookingPanel({
                   </View>
                 </View>
 
-                <View style={styles.row}>
-                  <Text style={styles.label}>{texts.cashOnArrival}</Text>
-                  <TextInput
-                    editable={!readOnly}
-                    value={cash}
-                    onChangeText={setCash}
-                    keyboardType="numeric"
-                    style={[styles.input, styles.flexInput]}
-                  />
-                </View>
+                {!hideCashOnArrival ? (
+                  <View style={styles.row}>
+                    <Text style={styles.label}>{texts.cashOnArrival}</Text>
+                    <TextInput
+                      editable={!readOnly}
+                      value={cash}
+                      onChangeText={setCash}
+                      keyboardType="numeric"
+                      style={[styles.input, styles.flexInput]}
+                    />
+                  </View>
+                ) : null}
 
                 <View style={styles.row}>
                   <Text style={styles.label}>{texts.phone}</Text>

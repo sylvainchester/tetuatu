@@ -128,7 +128,7 @@ export default function OptionsScreen() {
             <Text style={styles.back}>Retour</Text>
           </Pressable>
           <Text style={styles.title}>Options</Text>
-          <Text style={styles.subtitle}>Gestion whitelist admin / manager / member / eleve.</Text>
+          <Text style={styles.subtitle}>Gestion whitelist admin / manager / employee / member / eleve.</Text>
         </View>
 
         {loading ? (
@@ -151,6 +151,8 @@ export default function OptionsScreen() {
                 ? 'Admin'
                 : entry.role === 'manager'
                   ? 'Manager'
+                  : entry.role === 'employee'
+                    ? 'Employee'
                   : entry.role === 'member'
                     ? 'Member'
                     : 'Eleve'}
@@ -219,6 +221,8 @@ export default function OptionsScreen() {
                     ? 'Admin'
                     : student.role === 'manager'
                       ? 'Manager'
+                      : student.role === 'employee'
+                        ? 'Employee'
                       : student.role === 'member'
                         ? 'Member'
                         : 'Eleve'}{' '}

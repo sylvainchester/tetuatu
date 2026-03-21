@@ -49,6 +49,7 @@ const UI_TEXTS: Record<Locale, {
   cashOnArrival: string;
   adultsChildren: (adults: number, children: number) => string;
   managerSubtitle: string;
+  employeeSubtitle: string;
 }> = {
   fr: {
     subtitle: 'Réservations de la maison',
@@ -66,6 +67,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'À payer sur place',
     adultsChildren: (adults, children) => `Adultes : ${adults} | Enfants : ${children}`,
     managerSubtitle: 'Consultation des réservations.',
+    employeeSubtitle: 'Consultation des réservations pour employé.',
   },
   en: {
     subtitle: 'House bookings',
@@ -83,6 +85,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'Due on arrival',
     adultsChildren: (adults, children) => `Adults: ${adults} | Children: ${children}`,
     managerSubtitle: 'Bookings in read-only mode.',
+    employeeSubtitle: 'Read-only bookings for employee.',
   },
   pt: {
     subtitle: 'Reservas da casa',
@@ -100,6 +103,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'A pagar na chegada',
     adultsChildren: (adults, children) => `Adultos: ${adults} | Criancas: ${children}`,
     managerSubtitle: 'Consulta das reservas.',
+    employeeSubtitle: 'Consulta das reservas para funcionario.',
   },
 };
 
@@ -353,7 +357,7 @@ export default function ReservationsScreen() {
 
       const access = await fetchWhitelistByEmail(email);
       if (!alive) return;
-      if (!access || !['admin', 'manager'].includes(access.role)) {
+      if (!access || !['admin', 'manager', 'employee'].includes(access.role)) {
         setAccessRole(null);
         setAccessChecked(true);
         return;
@@ -449,7 +453,7 @@ export default function ReservationsScreen() {
     );
   }
 
-  if (accessChecked && accessRole === null) {
+    if (accessChecked && accessRole === null) {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.lockedCard}>
@@ -468,7 +472,13 @@ export default function ReservationsScreen() {
       <View style={styles.hero}>
         <View>
           <Text style={styles.title}>Montegordo</Text>
-          <Text style={styles.subtitle}>{accessRole === 'manager' ? texts.managerSubtitle : texts.subtitle}</Text>
+          <Text style={styles.subtitle}>
+            {accessRole === 'manager'
+              ? texts.managerSubtitle
+              : accessRole === 'employee'
+                ? texts.employeeSubtitle
+                : texts.subtitle}
+          </Text>
         </View>
         <View style={styles.heroActions}>
           <View style={styles.languageWrap}>
@@ -493,7 +503,7 @@ export default function ReservationsScreen() {
             ) : null}
           </View>
           <Pressable style={styles.backChip} onPress={handleTopRightAction}>
-            <Text style={styles.backChipText}>{accessRole === 'manager' ? 'Logout' : texts.close}</Text>
+            <Text style={styles.backChipText}>{accessRole === 'manager' || accessRole === 'employee' ? 'Logout' : texts.close}</Text>
           </Pressable>
         </View>
       </View>
@@ -609,7 +619,7 @@ export default function ReservationsScreen() {
                 <Text style={styles.bookingName}>{booking.tenant_name}</Text>
                 <Text style={styles.bookingRange}>{formatRange(booking.start_date, booking.end_date, locale)}</Text>
                 {booking.phone ? <Text style={styles.bookingMeta}>{texts.phone} : {booking.phone}</Text> : null}
-                {booking.cash_on_arrival != null ? (
+                {!['employee'].includes(accessRole) && booking.cash_on_arrival != null ? (
                   <Text style={styles.bookingMeta}>{texts.cashOnArrival} : {booking.cash_on_arrival} EUR</Text>
                 ) : null}
                 <Text style={styles.bookingMeta}>{texts.adultsChildren(booking.adults ?? 0, booking.children ?? 0)}</Text>
@@ -623,7 +633,8 @@ export default function ReservationsScreen() {
       <RentalBookingPanel
         visible={panelDate !== null}
         dateISO={panelDate}
-        readOnly={accessRole === 'manager'}
+        readOnly={accessRole === 'manager' || accessRole === 'employee'}
+        hideCashOnArrival={accessRole === 'employee'}
         texts={panelTexts}
         onClose={() => {
           setPanelDate(null);

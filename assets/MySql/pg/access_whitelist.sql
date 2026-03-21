@@ -3,7 +3,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.access_whitelist (
   id uuid primary key default gen_random_uuid(),
   email text not null unique,
-  role text not null check (role in ('admin', 'manager', 'member', 'eleve')),
+  role text not null check (role in ('admin', 'manager', 'employee', 'member', 'eleve')),
   teacher_email text null,
   added_by uuid null references auth.users(id) on delete set null,
   created_at timestamptz not null default now(),

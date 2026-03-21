@@ -1,7 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { getPushApiBase } from '@/lib/pushApi';
 
-export type AccessRole = 'admin' | 'manager' | 'member' | 'eleve';
+export type AccessRole = 'admin' | 'manager' | 'employee' | 'member' | 'eleve';
 
 export type AccessWhitelistRow = {
   id: string;
