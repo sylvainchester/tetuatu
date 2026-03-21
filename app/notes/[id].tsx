@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Modal,
   Platform,
   Pressable,
   SafeAreaView,
@@ -41,6 +42,7 @@ export default function EditNoteScreen() {
   const [existingPhotoPaths, setExistingPhotoPaths] = useState<string[]>([]);
   const [existingPhotoUrls, setExistingPhotoUrls] = useState<string[]>([]);
   const [newPhotos, setNewPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<string | null>(null);
 
   useEffect(() => {
     requireAdminNotesAccess().then((result) => {
@@ -221,7 +223,9 @@ export default function EditNoteScreen() {
             </View>
             <View style={styles.photoGrid}>
               {existingPhotoUrls.map((photo, index) => (
-                <Image key={`${photo}-${index}`} source={{ uri: photo }} style={styles.photo} contentFit="cover" />
+                <Pressable key={`${photo}-${index}`} onPress={() => setFullscreenPhoto(photo)}>
+                  <Image source={{ uri: photo }} style={styles.photo} contentFit="cover" />
+                </Pressable>
               ))}
               {newPhotos.map((photo, index) => (
                 <Pressable key={`${photo.preview}-${index}`} onPress={() => removeNewPhoto(index)} style={styles.photoWrap}>
@@ -249,6 +253,16 @@ export default function EditNoteScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={!!fullscreenPhoto} transparent animationType="fade" onRequestClose={() => setFullscreenPhoto(null)}>
+        <View style={styles.modalBackdrop}>
+          <Pressable style={styles.modalCloseZone} onPress={() => setFullscreenPhoto(null)} />
+          {fullscreenPhoto ? <Image source={{ uri: fullscreenPhoto }} style={styles.fullscreenImage} contentFit="contain" /> : null}
+          <Pressable style={styles.modalCloseButton} onPress={() => setFullscreenPhoto(null)}>
+            <Text style={styles.modalCloseText}>Fermer</Text>
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -363,6 +377,33 @@ const styles = StyleSheet.create({
   addPhotoPlus: {
     fontSize: 30,
     color: palette.accent,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  modalCloseZone: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  fullscreenImage: {
+    width: '100%',
+    height: '82%',
+  },
+  modalCloseButton: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  modalCloseText: {
+    color: '#fff',
+    fontWeight: '800',
   },
   actions: {
     flexDirection: 'row',
