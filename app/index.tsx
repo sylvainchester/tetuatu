@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   SafeAreaView,
   StyleSheet,
@@ -29,6 +30,7 @@ export default function HubScreen() {
   const [authInfo, setAuthInfo] = useState('');
   const [profileName, setProfileName] = useState('');
   const [accessRole, setAccessRole] = useState<'admin' | 'manager' | 'member' | 'eleve' | null>(null);
+  const [accessChecked, setAccessChecked] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { ensureUser, logout: logoutImpostor, isLoading: impostorLoading, error: impostorError } = useGameStore();
@@ -37,7 +39,16 @@ export default function HubScreen() {
     : 'joueur';
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    supabase.auth.getSession().then(async ({ data, error }) => {
+      if (error) {
+        await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        setSession(null);
+        setAccessChecked(true);
+        setAuthError('Session expirée. Reconnecte-toi.');
+        return;
+      }
+      setSession(data.session);
+    });
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
     });
@@ -87,8 +98,10 @@ export default function HubScreen() {
     if (!session?.user) {
       setProfileName('');
       setAccessRole(null);
+      setAccessChecked(true);
       return;
     }
+    setAccessChecked(false);
     Promise.all([
       ensureProfileUsername(session.user),
       session.user.email ? fetchWhitelistByEmail(session.user.email) : Promise.resolve(null)
@@ -99,11 +112,16 @@ export default function HubScreen() {
           await supabase.auth.signOut();
           await logoutImpostor();
           setAuthError('Acces refuse: email non whitelist.');
+          setAccessChecked(true);
           return;
         }
         setAccessRole(access.role);
+        setAccessChecked(true);
       })
-      .catch((err: any) => setAuthError(err.message || 'Erreur verification acces.'));
+      .catch((err: any) => {
+        setAuthError(err.message || 'Erreur verification acces.');
+        setAccessChecked(true);
+      });
   }, [session, logoutImpostor]);
 
   const usernameLabel = useMemo(() => 'Pseudo', []);
@@ -316,7 +334,13 @@ export default function HubScreen() {
       </View>
 
       <View style={styles.hubGrid}>
-        {accessRole === 'admin' || accessRole === 'manager' ? (
+        {!accessChecked ? (
+          <View style={styles.loadingCard}>
+            <ActivityIndicator size="large" color="#f59e0b" />
+            <Text style={styles.loadingText}>Vérification du profil...</Text>
+          </View>
+        ) : null}
+        {accessChecked && (accessRole === 'admin' || accessRole === 'manager') ? (
           <>
             <Pressable style={[styles.card, styles.cardRental]} onPress={() => router.push('/reservations')}>
               <Text style={styles.cardTitle}>Montegordo</Text>
@@ -329,7 +353,7 @@ export default function HubScreen() {
             </Pressable>
           </>
         ) : null}
-        {accessRole === 'admin' || accessRole === 'member' ? (
+        {accessChecked && (accessRole === 'admin' || accessRole === 'member') ? (
           <>
             <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
               <Text style={styles.cardTitle}>Coinche</Text>
@@ -347,7 +371,7 @@ export default function HubScreen() {
             </Pressable>
           </>
         ) : null}
-        {accessRole !== 'manager' ? (
+        {accessChecked && accessRole !== 'manager' ? (
           <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
             <Text style={styles.cardTitle}>Francais</Text>
             <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
@@ -568,6 +592,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 16,
     zIndex: 1
+  },
+  loadingCard: {
+    backgroundColor: '#111827',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    alignItems: 'center',
+    gap: 10
+  },
+  loadingText: {
+    color: '#cbd5e1',
+    fontWeight: '600'
   },
   card: {
     backgroundColor: '#111827',

@@ -2,32 +2,205 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 
-import { RentalBookingPanel } from '@/components/RentalBookingPanel';
+import { RentalBookingPanel, type RentalPanelTexts } from '@/components/RentalBookingPanel';
 import { fetchWhitelistByEmail, type AccessRole } from '@/lib/accessControl';
 import { fetchRentalBookings, fetchRentalCalendarDays, RentalBooking } from '@/lib/rentalsApi';
 import { supabase } from '@/lib/supabase';
 
 type ViewMode = 'calendar' | 'list';
+type Locale = 'fr' | 'en' | 'pt';
 
 type CalDay = {
   date: string;
   color: 'green' | 'orange' | 'red';
 };
 
-const FRENCH_MONTHS = [
-  'janvier',
-  'fevrier',
-  'mars',
-  'avril',
-  'mai',
-  'juin',
-  'juillet',
-  'aout',
-  'septembre',
-  'octobre',
-  'novembre',
-  'decembre',
-] as const;
+const LOCALE_OPTIONS: { code: Locale; label: string; flag: string }[] = [
+  { code: 'fr', label: 'Français', flag: '🇫🇷' },
+  { code: 'en', label: 'English', flag: '🇬🇧' },
+  { code: 'pt', label: 'Português', flag: '🇵🇹' },
+];
+
+const MONTHS_BY_LOCALE: Record<Locale, string[]> = {
+  fr: ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'],
+  en: ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'],
+  pt: ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'],
+};
+
+const WEEKDAYS_BY_LOCALE: Record<Locale, string[]> = {
+  fr: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'],
+  en: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+  pt: ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sab', 'Dom'],
+};
+
+const UI_TEXTS: Record<Locale, {
+  subtitle: string;
+  close: string;
+  calendar: string;
+  list: string;
+  deniedTitle: string;
+  deniedText: string;
+  back: string;
+  noBookings: string;
+  freeBefore: (days: number) => string;
+  freeDays: (days: number) => string;
+  cleaningPlanned: (date: string) => string;
+  phone: string;
+  cashOnArrival: string;
+  adultsChildren: (adults: number, children: number) => string;
+  managerSubtitle: string;
+}> = {
+  fr: {
+    subtitle: 'Réservations de la maison',
+    close: 'Fermer',
+    calendar: 'Calendrier',
+    list: 'Liste',
+    deniedTitle: 'Accès refusé',
+    deniedText: 'Cette brique est réservée aux administrateurs.',
+    back: 'Retour',
+    noBookings: 'Aucune réservation.',
+    freeBefore: (days) => `${days} jours libres avant la prochaine réservation`,
+    freeDays: (days) => `${days} jours libres`,
+    cleaningPlanned: (date) => `Ménage prévu le ${date}`,
+    phone: 'Téléphone',
+    cashOnArrival: 'À payer sur place',
+    adultsChildren: (adults, children) => `Adultes : ${adults} | Enfants : ${children}`,
+    managerSubtitle: 'Consultation des réservations.',
+  },
+  en: {
+    subtitle: 'House bookings',
+    close: 'Close',
+    calendar: 'Calendar',
+    list: 'List',
+    deniedTitle: 'Access denied',
+    deniedText: 'This section is reserved for administrators.',
+    back: 'Back',
+    noBookings: 'No bookings.',
+    freeBefore: (days) => `${days} free days before the next booking`,
+    freeDays: (days) => `${days} free days`,
+    cleaningPlanned: (date) => `Cleaning scheduled on ${date}`,
+    phone: 'Phone',
+    cashOnArrival: 'Due on arrival',
+    adultsChildren: (adults, children) => `Adults: ${adults} | Children: ${children}`,
+    managerSubtitle: 'Bookings in read-only mode.',
+  },
+  pt: {
+    subtitle: 'Reservas da casa',
+    close: 'Fechar',
+    calendar: 'Calendario',
+    list: 'Lista',
+    deniedTitle: 'Acesso recusado',
+    deniedText: 'Esta area esta reservada aos administradores.',
+    back: 'Voltar',
+    noBookings: 'Nenhuma reserva.',
+    freeBefore: (days) => `${days} dias livres ate a proxima reserva`,
+    freeDays: (days) => `${days} dias livres`,
+    cleaningPlanned: (date) => `Limpeza prevista em ${date}`,
+    phone: 'Telefone',
+    cashOnArrival: 'A pagar na chegada',
+    adultsChildren: (adults, children) => `Adultos: ${adults} | Criancas: ${children}`,
+    managerSubtitle: 'Consulta das reservas.',
+  },
+};
+
+const PANEL_TEXTS: Record<Locale, RentalPanelTexts> = {
+  fr: {
+    newBooking: 'Nouvelle réservation',
+    editBooking: 'Modifier la réservation',
+    nights: 'Nombre de nuits',
+    tenant: 'Locataire',
+    people: 'Personnes',
+    adults: 'Adultes',
+    children: 'Enfants',
+    cashOnArrival: 'À payer sur place',
+    phone: 'Téléphone',
+    cleaning: 'Ménage',
+    yes: 'Oui',
+    no: 'Non',
+    extraInfo: 'Informations complémentaires',
+    close: 'Fermer',
+    save: 'Enregistrer',
+    deleteBooking: 'Supprimer la réservation',
+    cancelBookingTitle: 'Annuler la réservation ?',
+    cancelBookingBody: 'Cette action supprime définitivement la réservation.',
+    deleteConfirm: 'Oui',
+    missingNameTitle: 'Nom manquant',
+    missingNameBody: 'Le nom du locataire est requis.',
+    overlapTitle: 'Conflit de dates',
+    overlapBody: 'Cette période chevauche déjà une autre réservation.',
+    overlapSaveBody: 'Impossible d’enregistrer: chevauchement détecté.',
+    loadingError: 'Chargement impossible.',
+    checkDatesError: 'Vérification des dates impossible.',
+    deleteError: 'Suppression impossible.',
+    bookingNotFound: 'Réservation introuvable.',
+    saveError: 'Enregistrement impossible.',
+    genericError: 'Erreur',
+  },
+  en: {
+    newBooking: 'New booking',
+    editBooking: 'Edit booking',
+    nights: 'Number of nights',
+    tenant: 'Guest',
+    people: 'Guests',
+    adults: 'Adults',
+    children: 'Children',
+    cashOnArrival: 'Due on arrival',
+    phone: 'Phone',
+    cleaning: 'Cleaning',
+    yes: 'Yes',
+    no: 'No',
+    extraInfo: 'Additional information',
+    close: 'Close',
+    save: 'Save',
+    deleteBooking: 'Delete booking',
+    cancelBookingTitle: 'Delete this booking?',
+    cancelBookingBody: 'This action permanently deletes the booking.',
+    deleteConfirm: 'Delete',
+    missingNameTitle: 'Missing name',
+    missingNameBody: 'Guest name is required.',
+    overlapTitle: 'Date conflict',
+    overlapBody: 'This period overlaps an existing booking.',
+    overlapSaveBody: 'Cannot save: overlap detected.',
+    loadingError: 'Unable to load booking.',
+    checkDatesError: 'Unable to validate dates.',
+    deleteError: 'Unable to delete booking.',
+    bookingNotFound: 'Booking not found.',
+    saveError: 'Unable to save booking.',
+    genericError: 'Error',
+  },
+  pt: {
+    newBooking: 'Nova reserva',
+    editBooking: 'Editar reserva',
+    nights: 'Numero de noites',
+    tenant: 'Hospede',
+    people: 'Pessoas',
+    adults: 'Adultos',
+    children: 'Criancas',
+    cashOnArrival: 'A pagar na chegada',
+    phone: 'Telefone',
+    cleaning: 'Limpeza',
+    yes: 'Sim',
+    no: 'Nao',
+    extraInfo: 'Informacoes adicionais',
+    close: 'Fechar',
+    save: 'Guardar',
+    deleteBooking: 'Apagar reserva',
+    cancelBookingTitle: 'Apagar esta reserva?',
+    cancelBookingBody: 'Esta acao apaga definitivamente a reserva.',
+    deleteConfirm: 'Apagar',
+    missingNameTitle: 'Nome em falta',
+    missingNameBody: 'O nome do hospede e obrigatorio.',
+    overlapTitle: 'Conflito de datas',
+    overlapBody: 'Este periodo sobrepoe-se a uma reserva existente.',
+    overlapSaveBody: 'Nao foi possivel guardar: sobreposicao detetada.',
+    loadingError: 'Nao foi possivel carregar.',
+    checkDatesError: 'Nao foi possivel validar as datas.',
+    deleteError: 'Nao foi possivel apagar.',
+    bookingNotFound: 'Reserva nao encontrada.',
+    saveError: 'Nao foi possivel guardar.',
+    genericError: 'Erro',
+  },
+};
 
 function calendarBackground(color: CalDay['color']) {
   if (color === 'green') return '#79d36b';
@@ -39,8 +212,8 @@ function calendarText(color: CalDay['color']) {
   return color === 'green' ? '#103b11' : '#2a1a0d';
 }
 
-function monthTitle(year: number, month: number) {
-  return `${FRENCH_MONTHS[month - 1]} ${year}`;
+function monthTitle(year: number, month: number, locale: Locale) {
+  return `${MONTHS_BY_LOCALE[locale][month - 1]} ${year}`;
 }
 
 function daysInMonth(year: number, month: number) {
@@ -106,13 +279,13 @@ function daysBetween(aIso: string, bIso: string) {
   return Math.round((b.getTime() - a.getTime()) / 86400000);
 }
 
-function formatDayMonth(dateISO: string) {
+function formatDayMonth(dateISO: string, locale: Locale) {
   const [, month, day] = dateISO.split('-').map(Number);
-  return `${day} ${FRENCH_MONTHS[month - 1]}`;
+  return `${day} ${MONTHS_BY_LOCALE[locale][month - 1]}`;
 }
 
-function formatRange(startISO: string, endISO: string) {
-  return `${formatDayMonth(startISO)} -> ${formatDayMonth(endISO)}`;
+function formatRange(startISO: string, endISO: string, locale: Locale) {
+  return `${formatDayMonth(startISO, locale)} -> ${formatDayMonth(endISO, locale)}`;
 }
 
 export default function ReservationsScreen() {
@@ -127,6 +300,8 @@ export default function ReservationsScreen() {
   const [previewDays, setPreviewDays] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [todayISO, setTodayISO] = useState<string | null>(null);
+  const [locale, setLocale] = useState<Locale>('fr');
+  const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
 
   useEffect(() => {
     setHydrated(true);
@@ -153,6 +328,9 @@ export default function ReservationsScreen() {
     return monthRange(fromISO, toISO);
   }, [fromISO, toISO]);
   const previewSet = useMemo(() => buildRangeSet(panelDate, previewDays), [panelDate, previewDays]);
+  const texts = UI_TEXTS[locale];
+  const panelTexts = PANEL_TEXTS[locale];
+  const activeLanguage = LOCALE_OPTIONS.find((option) => option.code === locale) || LOCALE_OPTIONS[0];
 
   useEffect(() => {
     let alive = true;
@@ -267,9 +445,9 @@ export default function ReservationsScreen() {
       <SafeAreaView style={styles.safe}>
         <View style={styles.lockedCard}>
           <Text style={styles.lockedTitle}>Accès refusé</Text>
-          <Text style={styles.lockedText}>Cette brique est réservée aux administrateurs.</Text>
+          <Text style={styles.lockedText}>{texts.deniedText}</Text>
           <Pressable style={styles.backButton} onPress={() => router.replace('/')}>
-            <Text style={styles.backButtonText}>Retour</Text>
+            <Text style={styles.backButtonText}>{texts.back}</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -281,23 +459,46 @@ export default function ReservationsScreen() {
       <View style={styles.hero}>
         <View>
           <Text style={styles.title}>Montegordo</Text>
-          <Text style={styles.subtitle}>Réservations de la maison</Text>
+          <Text style={styles.subtitle}>{accessRole === 'manager' ? texts.managerSubtitle : texts.subtitle}</Text>
         </View>
-        <Pressable style={styles.backChip} onPress={() => router.back()}>
-          <Text style={styles.backChipText}>Fermer</Text>
-        </Pressable>
+        <View style={styles.heroActions}>
+          <View style={styles.languageWrap}>
+            <Pressable style={styles.languageButton} onPress={() => setLanguageMenuOpen((value) => !value)}>
+              <Text style={styles.languageButtonText}>{activeLanguage.flag}</Text>
+            </Pressable>
+            {languageMenuOpen ? (
+              <View style={styles.languageMenu}>
+                {LOCALE_OPTIONS.map((option) => (
+                  <Pressable
+                    key={option.code}
+                    style={[styles.languageMenuItem, option.code === locale && styles.languageMenuItemActive]}
+                    onPress={() => {
+                      setLocale(option.code);
+                      setLanguageMenuOpen(false);
+                    }}>
+                    <Text style={styles.languageItemFlag}>{option.flag}</Text>
+                    <Text style={styles.languageItemText}>{option.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
+          </View>
+          <Pressable style={styles.backChip} onPress={() => router.back()}>
+            <Text style={styles.backChipText}>{texts.close}</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View style={styles.toggleRow}>
         <Pressable
           style={[styles.toggleButton, mode === 'calendar' && styles.toggleButtonActive]}
           onPress={() => setMode('calendar')}>
-          <Text style={[styles.toggleText, mode === 'calendar' && styles.toggleTextActive]}>Calendrier</Text>
+          <Text style={[styles.toggleText, mode === 'calendar' && styles.toggleTextActive]}>{texts.calendar}</Text>
         </Pressable>
         <Pressable
           style={[styles.toggleButton, mode === 'list' && styles.toggleButtonActive]}
           onPress={() => setMode('list')}>
-          <Text style={[styles.toggleText, mode === 'list' && styles.toggleTextActive]}>Liste</Text>
+          <Text style={[styles.toggleText, mode === 'list' && styles.toggleTextActive]}>{texts.list}</Text>
         </Pressable>
       </View>
 
@@ -320,9 +521,9 @@ export default function ReservationsScreen() {
 
             return (
               <View key={`${y}-${m}`} style={styles.monthSection}>
-                <Text style={styles.monthTitle}>{monthTitle(y, m)}</Text>
+                <Text style={styles.monthTitle}>{monthTitle(y, m, locale)}</Text>
                 <View style={styles.weekHeader}>
-                  {['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'].map((name) => (
+                  {WEEKDAYS_BY_LOCALE[locale].map((name) => (
                     <Text key={name} style={styles.weekHeaderText}>
                       {name}
                     </Text>
@@ -370,7 +571,7 @@ export default function ReservationsScreen() {
         <ScrollView contentContainerStyle={styles.listContent}>
           {rows.length === 0 ? (
             <View style={styles.emptyListCard}>
-              <Text style={styles.emptyListText}>Aucune réservation.</Text>
+              <Text style={styles.emptyListText}>{texts.noBookings}</Text>
             </View>
           ) : null}
 
@@ -379,9 +580,7 @@ export default function ReservationsScreen() {
               return (
                 <View key={`${row.type}-${index}`} style={styles.gapCard}>
                   <Text style={styles.gapText}>
-                    {row.type === 'gapTop'
-                      ? `${row.days} jours libres avant la prochaine réservation`
-                      : `${row.days} jours libres`}
+                    {row.type === 'gapTop' ? texts.freeBefore(row.days) : texts.freeDays(row.days)}
                   </Text>
                 </View>
               );
@@ -390,7 +589,7 @@ export default function ReservationsScreen() {
             if (row.type === 'cleaning') {
               return (
                 <View key={`cleaning-${index}`} style={styles.cleaningCard}>
-                  <Text style={styles.cleaningCardText}>Ménage prévu le {formatDayMonth(row.date)}</Text>
+                  <Text style={styles.cleaningCardText}>{texts.cleaningPlanned(formatDayMonth(row.date, locale))}</Text>
                 </View>
               );
             }
@@ -399,14 +598,12 @@ export default function ReservationsScreen() {
             return (
               <View key={booking.id} style={styles.bookingCard}>
                 <Text style={styles.bookingName}>{booking.tenant_name}</Text>
-                <Text style={styles.bookingRange}>{formatRange(booking.start_date, booking.end_date)}</Text>
-                {booking.phone ? <Text style={styles.bookingMeta}>Téléphone : {booking.phone}</Text> : null}
+                <Text style={styles.bookingRange}>{formatRange(booking.start_date, booking.end_date, locale)}</Text>
+                {booking.phone ? <Text style={styles.bookingMeta}>{texts.phone} : {booking.phone}</Text> : null}
                 {booking.cash_on_arrival != null ? (
-                  <Text style={styles.bookingMeta}>À payer sur place : {booking.cash_on_arrival} EUR</Text>
+                  <Text style={styles.bookingMeta}>{texts.cashOnArrival} : {booking.cash_on_arrival} EUR</Text>
                 ) : null}
-                <Text style={styles.bookingMeta}>
-                  Adultes : {booking.adults ?? 0} | Enfants : {booking.children ?? 0}
-                </Text>
+                <Text style={styles.bookingMeta}>{texts.adultsChildren(booking.adults ?? 0, booking.children ?? 0)}</Text>
                 {booking.details ? <Text style={styles.bookingNote}>{booking.details}</Text> : null}
               </View>
             );
@@ -418,6 +615,7 @@ export default function ReservationsScreen() {
         visible={panelDate !== null}
         dateISO={panelDate}
         readOnly={accessRole === 'manager'}
+        texts={panelTexts}
         onClose={() => {
           setPanelDate(null);
           setPreviewDays(1);
@@ -442,6 +640,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  heroActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   title: {
     fontSize: 30,
     fontWeight: '900',
@@ -463,6 +666,52 @@ const styles = StyleSheet.create({
   backChipText: {
     color: '#3b2f1d',
     fontWeight: '800',
+  },
+  languageWrap: {
+    position: 'relative',
+    zIndex: 80,
+  },
+  languageButton: {
+    width: 46,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#fff7eb',
+    borderWidth: 1,
+    borderColor: '#d5c3a1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  languageButtonText: {
+    fontSize: 22,
+  },
+  languageMenu: {
+    position: 'absolute',
+    top: 46,
+    right: 0,
+    minWidth: 150,
+    backgroundColor: '#fffaf1',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#d5c3a1',
+    overflow: 'hidden',
+  },
+  languageMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#fffaf1',
+  },
+  languageMenuItemActive: {
+    backgroundColor: '#f0e4d0',
+  },
+  languageItemFlag: {
+    fontSize: 18,
+  },
+  languageItemText: {
+    color: '#3b2f1d',
+    fontWeight: '700',
   },
   toggleRow: {
     flexDirection: 'row',

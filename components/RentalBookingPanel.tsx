@@ -24,10 +24,44 @@ import {
   updateRentalBooking,
 } from '@/lib/rentalsApi';
 
+export type RentalPanelTexts = {
+  newBooking: string;
+  editBooking: string;
+  nights: string;
+  tenant: string;
+  people: string;
+  adults: string;
+  children: string;
+  cashOnArrival: string;
+  phone: string;
+  cleaning: string;
+  yes: string;
+  no: string;
+  extraInfo: string;
+  close: string;
+  save: string;
+  deleteBooking: string;
+  cancelBookingTitle: string;
+  cancelBookingBody: string;
+  deleteConfirm: string;
+  missingNameTitle: string;
+  missingNameBody: string;
+  overlapTitle: string;
+  overlapBody: string;
+  overlapSaveBody: string;
+  loadingError: string;
+  checkDatesError: string;
+  deleteError: string;
+  bookingNotFound: string;
+  saveError: string;
+  genericError: string;
+};
+
 type Props = {
   visible: boolean;
   dateISO: string | null;
   readOnly?: boolean;
+  texts: RentalPanelTexts;
   onClose: () => void;
   onSaved: () => void;
   onPreviewDaysChange: (days: number) => void;
@@ -53,6 +87,7 @@ export function RentalBookingPanel({
   visible,
   dateISO,
   readOnly = false,
+  texts,
   onClose,
   onSaved,
   onPreviewDaysChange,
@@ -91,8 +126,8 @@ export function RentalBookingPanel({
 
   const title = useMemo(() => {
     if (!dateISO) return '';
-    return mode === 'create' ? `Nouvelle réservation (${dateISO})` : `Modifier la réservation (${dateISO})`;
-  }, [dateISO, mode]);
+    return mode === 'create' ? `${texts.newBooking} (${dateISO})` : `${texts.editBooking} (${dateISO})`;
+  }, [dateISO, mode, texts.editBooking, texts.newBooking]);
 
   useEffect(() => {
     if (!visible || !dateISO) return;
@@ -135,7 +170,7 @@ export function RentalBookingPanel({
         setCleaning(true);
         onPreviewDaysChange(1);
       } catch (error: any) {
-        Alert.alert('Erreur', error?.message ?? 'Chargement impossible.');
+        Alert.alert(texts.genericError, error?.message ?? texts.loadingError);
       } finally {
         if (alive) {
           setLoading(false);
@@ -146,7 +181,7 @@ export function RentalBookingPanel({
     return () => {
       alive = false;
     };
-  }, [dateISO, onPreviewDaysChange, visible]);
+  }, [dateISO, onPreviewDaysChange, texts.genericError, texts.loadingError, visible]);
 
   async function handleNumDaysChange(next: string) {
     setNumDays(next);
@@ -161,7 +196,7 @@ export function RentalBookingPanel({
       });
 
       if (overlap) {
-        Alert.alert('Conflit de dates', 'Cette période chevauche déjà une autre réservation.');
+        Alert.alert(texts.overlapTitle, texts.overlapBody);
         setNumDays(prevValidNumDays);
         onPreviewDaysChange(Math.max(1, parseInt(prevValidNumDays || '1', 10)));
         return;
@@ -171,7 +206,7 @@ export function RentalBookingPanel({
       setPrevValidNumDays(validValue);
       onPreviewDaysChange(days);
     } catch (error: any) {
-      Alert.alert('Erreur', error?.message ?? 'Vérification des dates impossible.');
+      Alert.alert(texts.genericError, error?.message ?? texts.checkDatesError);
       setNumDays(prevValidNumDays);
     }
   }
@@ -180,12 +215,12 @@ export function RentalBookingPanel({
     if (!booking?.id) return;
 
     Alert.alert(
-      'Annuler la réservation ?',
-      'Cette action supprime définitivement la réservation.',
+      texts.cancelBookingTitle,
+      texts.cancelBookingBody,
       [
-        { text: 'Non', style: 'cancel' },
+        { text: texts.no, style: 'cancel' },
         {
-          text: 'Oui',
+          text: texts.deleteConfirm,
           style: 'destructive',
           onPress: async () => {
             try {
@@ -194,7 +229,7 @@ export function RentalBookingPanel({
               onSaved();
               onClose();
             } catch (error: any) {
-              Alert.alert('Erreur', error?.message ?? 'Suppression impossible.');
+              Alert.alert(texts.genericError, error?.message ?? texts.deleteError);
             } finally {
               setLoading(false);
             }
@@ -209,7 +244,7 @@ export function RentalBookingPanel({
 
     const name = tenantName.trim();
     if (!name) {
-      Alert.alert('Nom manquant', 'Le nom du locataire est requis.');
+      Alert.alert(texts.missingNameTitle, texts.missingNameBody);
       return;
     }
 
@@ -225,7 +260,7 @@ export function RentalBookingPanel({
         });
 
         if (overlap) {
-          Alert.alert('Conflit de dates', 'Impossible d’enregistrer: chevauchement détecté.');
+          Alert.alert(texts.overlapTitle, texts.overlapSaveBody);
           return;
         }
 
@@ -241,7 +276,7 @@ export function RentalBookingPanel({
         });
       } else {
         if (!booking?.id) {
-          throw new Error('Réservation introuvable.');
+          throw new Error(texts.bookingNotFound);
         }
         await updateRentalBooking(booking.id, {
           tenant_name: name,
@@ -257,7 +292,7 @@ export function RentalBookingPanel({
       onSaved();
       onClose();
     } catch (error: any) {
-      Alert.alert('Erreur', error?.message ?? 'Enregistrement impossible.');
+      Alert.alert(texts.genericError, error?.message ?? texts.saveError);
     } finally {
       setLoading(false);
     }
@@ -282,7 +317,7 @@ export function RentalBookingPanel({
               <>
                 {mode === 'create' ? (
                   <View style={styles.row}>
-                    <Text style={styles.label}>Nombre de nuits</Text>
+                    <Text style={styles.label}>{texts.nights}</Text>
                     <TextInput
                       editable={!readOnly}
                       value={numDays}
@@ -294,7 +329,7 @@ export function RentalBookingPanel({
                 ) : null}
 
                 <View style={styles.row}>
-                  <Text style={styles.label}>Locataire</Text>
+                  <Text style={styles.label}>{texts.tenant}</Text>
                   <TextInput
                     editable={!readOnly}
                     value={tenantName}
@@ -304,10 +339,10 @@ export function RentalBookingPanel({
                 </View>
 
                 <View style={styles.row}>
-                  <Text style={styles.label}>Personnes</Text>
+                  <Text style={styles.label}>{texts.people}</Text>
                   <View style={styles.splitRow}>
                     <View style={styles.splitCol}>
-                      <Text style={styles.miniLabel}>Adultes</Text>
+                      <Text style={styles.miniLabel}>{texts.adults}</Text>
                       <TextInput
                         editable={!readOnly}
                         value={adults}
@@ -317,7 +352,7 @@ export function RentalBookingPanel({
                       />
                     </View>
                     <View style={styles.splitCol}>
-                      <Text style={styles.miniLabel}>Enfants</Text>
+                      <Text style={styles.miniLabel}>{texts.children}</Text>
                       <TextInput
                         editable={!readOnly}
                         value={children}
@@ -330,7 +365,7 @@ export function RentalBookingPanel({
                 </View>
 
                 <View style={styles.row}>
-                  <Text style={styles.label}>À payer sur place</Text>
+                  <Text style={styles.label}>{texts.cashOnArrival}</Text>
                   <TextInput
                     editable={!readOnly}
                     value={cash}
@@ -341,7 +376,7 @@ export function RentalBookingPanel({
                 </View>
 
                 <View style={styles.row}>
-                  <Text style={styles.label}>Téléphone</Text>
+                  <Text style={styles.label}>{texts.phone}</Text>
                   <TextInput
                     editable={!readOnly}
                     value={phone}
@@ -352,16 +387,16 @@ export function RentalBookingPanel({
                 </View>
 
                 <View style={styles.row}>
-                  <Text style={styles.label}>Ménage</Text>
+                  <Text style={styles.label}>{texts.cleaning}</Text>
                   <Pressable
                     disabled={readOnly}
                     onPress={() => setCleaning((current) => !current)}
                     style={[styles.cleaningPill, cleaning ? styles.cleaningOn : styles.cleaningOff]}>
-                    <Text style={styles.cleaningText}>{cleaning ? 'Oui' : 'Non'}</Text>
+                    <Text style={styles.cleaningText}>{cleaning ? texts.yes : texts.no}</Text>
                   </Pressable>
                 </View>
 
-                <Text style={styles.miniLabel}>Informations complémentaires</Text>
+                <Text style={styles.miniLabel}>{texts.extraInfo}</Text>
                 <TextInput
                   editable={!readOnly}
                   multiline
@@ -372,18 +407,18 @@ export function RentalBookingPanel({
 
                 <View style={styles.actionsRow}>
                   <Pressable style={styles.cancelButton} onPress={onClose}>
-                    <Text style={styles.cancelText}>Fermer</Text>
+                    <Text style={styles.cancelText}>{texts.close}</Text>
                   </Pressable>
                   {!readOnly ? (
                     <Pressable style={styles.saveButton} onPress={handleSubmit}>
-                      <Text style={styles.saveText}>Enregistrer</Text>
+                      <Text style={styles.saveText}>{texts.save}</Text>
                     </Pressable>
                   ) : null}
                 </View>
 
                 {!readOnly && mode === 'edit' && booking?.id ? (
                   <Pressable style={styles.deleteButton} onPress={handleDelete} disabled={loading}>
-                    <Text style={styles.deleteText}>Supprimer la réservation</Text>
+                    <Text style={styles.deleteText}>{texts.deleteBooking}</Text>
                   </Pressable>
                 ) : null}
               </>
