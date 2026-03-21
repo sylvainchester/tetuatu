@@ -28,7 +28,7 @@ export default function HubScreen() {
   const [authError, setAuthError] = useState('');
   const [authInfo, setAuthInfo] = useState('');
   const [profileName, setProfileName] = useState('');
-  const [accessRole, setAccessRole] = useState<'admin' | 'eleve' | null>(null);
+  const [accessRole, setAccessRole] = useState<'admin' | 'manager' | 'member' | 'eleve' | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const { ensureUser, logout: logoutImpostor, isLoading: impostorLoading, error: impostorError } = useGameStore();
@@ -316,7 +316,20 @@ export default function HubScreen() {
       </View>
 
       <View style={styles.hubGrid}>
-        {accessRole === 'admin' ? (
+        {accessRole === 'admin' || accessRole === 'manager' ? (
+          <>
+            <Pressable style={[styles.card, styles.cardRental]} onPress={() => router.push('/reservations')}>
+              <Text style={styles.cardTitle}>Montegordo</Text>
+              <Text style={styles.cardMeta}>
+                {accessRole === 'manager' ? 'Consultation des réservations.' : 'Réservations maison, calendrier et liste.'}
+              </Text>
+              <View style={styles.cardAction}>
+                <Text style={styles.cardActionText}>Entrer</Text>
+              </View>
+            </Pressable>
+          </>
+        ) : null}
+        {accessRole === 'admin' || accessRole === 'member' ? (
           <>
             <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
               <Text style={styles.cardTitle}>Coinche</Text>
@@ -334,13 +347,15 @@ export default function HubScreen() {
             </Pressable>
           </>
         ) : null}
-        <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
-          <Text style={styles.cardTitle}>Francais</Text>
-          <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
-          <View style={styles.cardAction}>
-            <Text style={styles.cardActionText}>Entrer</Text>
-          </View>
-        </Pressable>
+        {accessRole !== 'manager' ? (
+          <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
+            <Text style={styles.cardTitle}>Francais</Text>
+            <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
+            <View style={styles.cardAction}>
+              <Text style={styles.cardActionText}>Entrer</Text>
+            </View>
+          </Pressable>
+        ) : null}
         {impostorError ? <Text style={styles.errorText}>{impostorError}</Text> : null}
       </View>
     </SafeAreaView>
@@ -563,6 +578,9 @@ const styles = StyleSheet.create({
   },
   cardAlt: {
     borderColor: '#312e81'
+  },
+  cardRental: {
+    borderColor: '#9a3412'
   },
   cardFrench: {
     borderColor: '#065f46'

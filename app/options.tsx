@@ -128,7 +128,7 @@ export default function OptionsScreen() {
             <Text style={styles.back}>Retour</Text>
           </Pressable>
           <Text style={styles.title}>Options</Text>
-          <Text style={styles.subtitle}>Gestion whitelist prof / eleve.</Text>
+          <Text style={styles.subtitle}>Gestion whitelist admin / manager / member / eleve.</Text>
         </View>
 
         {loading ? (
@@ -146,7 +146,15 @@ export default function OptionsScreen() {
         {!loading && entry ? (
           <View style={styles.block}>
             <Text style={styles.label}>Ton role</Text>
-            <Text style={styles.value}>{entry.role === 'admin' ? 'Admin' : 'Eleve'}</Text>
+            <Text style={styles.value}>
+              {entry.role === 'admin'
+                ? 'Admin'
+                : entry.role === 'manager'
+                  ? 'Manager'
+                  : entry.role === 'member'
+                    ? 'Member'
+                    : 'Eleve'}
+            </Text>
             <Text style={styles.muted}>Les identites affichent les profils, pas les emails.</Text>
           </View>
         ) : null}
@@ -207,7 +215,14 @@ export default function OptionsScreen() {
               <View key={student.id} style={styles.studentRow}>
                 <Text style={styles.studentEmail}>{student.profile_username || 'Profil inconnu'}</Text>
                 <Text style={styles.studentMeta}>
-                  {student.role === 'admin' ? 'Admin' : 'Eleve'} • {student.created_at.slice(0, 10)}
+                  {student.role === 'admin'
+                    ? 'Admin'
+                    : student.role === 'manager'
+                      ? 'Manager'
+                      : student.role === 'member'
+                        ? 'Member'
+                        : 'Eleve'}{' '}
+                  • {student.created_at.slice(0, 10)}
                 </Text>
               </View>
             ))}

@@ -83,7 +83,7 @@ export default function LobbyScreen() {
     if (!sessionChecked || !authEmail) return;
     fetchWhitelistByEmail(authEmail)
       .then((access) => {
-        if (!access || access.role === 'eleve') {
+        if (!access || !['admin', 'member'].includes(access.role)) {
           setAccessDenied(true);
           router.replace('/');
           return;

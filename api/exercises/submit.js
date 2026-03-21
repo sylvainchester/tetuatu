@@ -47,7 +47,7 @@ module.exports = async function handler(req, res) {
   }
   const whitelist = (whitelistRows || [])[0];
   if (!whitelist) return json(res, 403, { error: 'not_whitelisted' });
-  if (!['eleve', 'admin'].includes(String(whitelist.role || ''))) {
+  if (!['eleve', 'member', 'admin'].includes(String(whitelist.role || ''))) {
     return json(res, 403, { error: 'not_allowed_role' });
   }
 

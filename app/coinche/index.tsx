@@ -67,7 +67,7 @@ export default function CoincheHomeScreen() {
           return;
         }
         const access = await fetchWhitelistByEmail(session.user.email);
-        if (!access || access.role === 'eleve') {
+        if (!access || !['admin', 'member'].includes(access.role)) {
           setAccessDenied(true);
           router.replace('/');
           return;

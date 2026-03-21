@@ -23,7 +23,7 @@ module.exports = async function handler(req, res) {
     .limit(1);
   if (whitelistError) return json(res, 500, { error: whitelistError.message || 'whitelist_lookup_failed' });
   const role = String((whitelistRows || [])[0]?.role || '');
-  if (!['eleve', 'admin'].includes(role)) return json(res, 403, { error: 'not_allowed_role' });
+  if (!['eleve', 'member', 'admin'].includes(role)) return json(res, 403, { error: 'not_allowed_role' });
 
   const testId = String(req.query?.test_id || '').trim();
   if (!testId) return json(res, 400, { error: 'missing_test_id' });
