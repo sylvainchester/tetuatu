@@ -217,6 +217,8 @@ export default function RootLayout() {
         <Stack.Screen name="tests" options={{ headerShown: false }} />
         <Stack.Screen name="tests-corrections" options={{ headerShown: false }} />
         <Stack.Screen name="reservations" options={{ headerShown: false }} />
+        <Stack.Screen name="fino/index" options={{ headerShown: false }} />
+        <Stack.Screen name="fino/game/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="notes/index" options={{ headerShown: false }} />
         <Stack.Screen name="notes/new" options={{ headerShown: false }} />
         <Stack.Screen name="notes/[id]" options={{ headerShown: false }} />

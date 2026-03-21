@@ -357,36 +357,29 @@ export default function HubScreen() {
                     ? 'Consultation réservée employé.'
                     : 'Réservations maison, calendrier et liste.'}
               </Text>
-              <View style={styles.cardAction}>
-                <Text style={styles.cardActionText}>Entrer</Text>
-              </View>
             </Pressable>
             {accessRole === 'admin' ? (
               <Pressable style={[styles.card, styles.cardNotes]} onPress={() => router.push('/notes' as any)}>
                 <Text style={styles.cardTitle}>Notes</Text>
                 <Text style={styles.cardMeta}>Notes personnelles, rappels et échéances.</Text>
-                <View style={styles.cardAction}>
-                  <Text style={styles.cardActionText}>Entrer</Text>
-                </View>
               </Pressable>
             ) : null}
           </>
         ) : null}
         {accessChecked && ['admin', 'member'].includes(accessRole || '') ? (
           <>
+            <Pressable style={[styles.card, styles.cardFino]} onPress={() => router.push('/fino' as any)}>
+              <Text style={styles.cardTitle}>Fino</Text>
+              <Text style={styles.cardMeta}>Duo, lobby et état de partie en cours de migration.</Text>
+            </Pressable>
             <Pressable style={styles.card} onPress={() => router.push('/coinche')}>
               <Text style={styles.cardTitle}>Coinche</Text>
               <Text style={styles.cardMeta}>Tables rapides, robots prets.</Text>
-              <View style={styles.cardAction}>
-                <Text style={styles.cardActionText}>Entrer</Text>
-              </View>
             </Pressable>
             <Pressable style={[styles.card, styles.cardAlt]} onPress={handleEnterImpostor}>
               <Text style={styles.cardTitle}>Imposteur</Text>
               <Text style={styles.cardMeta}>Parties bluff, votes, score.</Text>
-              <View style={styles.cardAction}>
-                <Text style={styles.cardActionText}>{impostorLoading ? 'Connexion...' : 'Entrer'}</Text>
-              </View>
+              {impostorLoading ? <Text style={styles.cardStatus}>Connexion...</Text> : null}
             </Pressable>
           </>
         ) : null}
@@ -394,9 +387,6 @@ export default function HubScreen() {
           <Pressable style={[styles.card, styles.cardFrench]} onPress={() => router.push('/tests')}>
             <Text style={styles.cardTitle}>Francais</Text>
             <Text style={styles.cardMeta}>Conjugaison, dictées, orthographe.</Text>
-            <View style={styles.cardAction}>
-              <Text style={styles.cardActionText}>Entrer</Text>
-            </View>
           </Pressable>
         ) : null}
         {impostorError ? <Text style={styles.errorText}>{impostorError}</Text> : null}
@@ -641,6 +631,9 @@ const styles = StyleSheet.create({
   cardNotes: {
     borderColor: '#b45309'
   },
+  cardFino: {
+    borderColor: '#0f766e'
+  },
   cardFrench: {
     borderColor: '#065f46'
   },
@@ -653,16 +646,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
     color: '#94a3b8'
   },
-  cardAction: {
-    marginTop: 16,
-    alignSelf: 'flex-start',
-    backgroundColor: '#f59e0b',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12
-  },
-  cardActionText: {
-    color: '#1f2937',
+  cardStatus: {
+    marginTop: 14,
+    color: '#f59e0b',
     fontWeight: '700'
   },
   errorText: {
