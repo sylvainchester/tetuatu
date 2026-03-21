@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    height: '72%',
+    height: '81%',
     zIndex: 999,
     elevation: 30,
   },

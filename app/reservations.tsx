@@ -300,7 +300,7 @@ export default function ReservationsScreen() {
   const [previewDays, setPreviewDays] = useState(1);
   const [refreshKey, setRefreshKey] = useState(0);
   const [todayISO, setTodayISO] = useState<string | null>(null);
-  const [locale, setLocale] = useState<Locale>('fr');
+  const [locale, setLocale] = useState<Locale>('pt');
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -331,6 +331,15 @@ export default function ReservationsScreen() {
   const texts = UI_TEXTS[locale];
   const panelTexts = PANEL_TEXTS[locale];
   const activeLanguage = LOCALE_OPTIONS.find((option) => option.code === locale) || LOCALE_OPTIONS[0];
+
+  async function handleTopRightAction() {
+    if (accessRole === 'manager') {
+      await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+      router.replace('/');
+      return;
+    }
+    router.back();
+  }
 
   useEffect(() => {
     let alive = true;
@@ -483,8 +492,8 @@ export default function ReservationsScreen() {
               </View>
             ) : null}
           </View>
-          <Pressable style={styles.backChip} onPress={() => router.back()}>
-            <Text style={styles.backChipText}>{texts.close}</Text>
+          <Pressable style={styles.backChip} onPress={handleTopRightAction}>
+            <Text style={styles.backChipText}>{accessRole === 'manager' ? 'Logout' : texts.close}</Text>
           </Pressable>
         </View>
       </View>
@@ -639,6 +648,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    position: 'relative',
+    zIndex: 50,
+    elevation: 50,
   },
   heroActions: {
     flexDirection: 'row',
@@ -669,7 +681,8 @@ const styles = StyleSheet.create({
   },
   languageWrap: {
     position: 'relative',
-    zIndex: 80,
+    zIndex: 120,
+    elevation: 120,
   },
   languageButton: {
     width: 46,
@@ -694,6 +707,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#d5c3a1',
     overflow: 'hidden',
+    zIndex: 200,
+    elevation: 200,
   },
   languageMenuItem: {
     flexDirection: 'row',
@@ -718,6 +733,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 20,
     paddingBottom: 10,
+    zIndex: 1,
+    elevation: 1,
   },
   toggleButton: {
     flex: 1,

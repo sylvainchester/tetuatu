@@ -124,6 +124,12 @@ export default function HubScreen() {
       });
   }, [session, logoutImpostor]);
 
+  useEffect(() => {
+    if (!accessChecked) return;
+    if (accessRole !== 'manager') return;
+    router.replace('/reservations');
+  }, [accessChecked, accessRole]);
+
   const usernameLabel = useMemo(() => 'Pseudo', []);
 
   async function handleAuth() {
@@ -351,6 +357,15 @@ export default function HubScreen() {
                 <Text style={styles.cardActionText}>Entrer</Text>
               </View>
             </Pressable>
+            {accessRole === 'admin' ? (
+              <Pressable style={[styles.card, styles.cardNotes]} onPress={() => router.push('/notes' as any)}>
+                <Text style={styles.cardTitle}>Notes</Text>
+                <Text style={styles.cardMeta}>Notes personnelles, rappels et échéances.</Text>
+                <View style={styles.cardAction}>
+                  <Text style={styles.cardActionText}>Entrer</Text>
+                </View>
+              </Pressable>
+            ) : null}
           </>
         ) : null}
         {accessChecked && (accessRole === 'admin' || accessRole === 'member') ? (
@@ -618,6 +633,9 @@ const styles = StyleSheet.create({
   },
   cardRental: {
     borderColor: '#9a3412'
+  },
+  cardNotes: {
+    borderColor: '#b45309'
   },
   cardFrench: {
     borderColor: '#065f46'
