@@ -1,5 +1,5 @@
-const { json, methodNotAllowed, supabaseAdmin } = require('../_lib/common');
-const { sendPushToUsers } = require('../_lib/pushSender');
+const { json, methodNotAllowed, supabaseAdmin } = require('../../api-lib/common');
+const { sendPushToUsers } = require('../../api-lib/pushSender');
 
 const TIMEZONE = 'Europe/Lisbon';
 const TARGET_ROLES = ['admin', 'manager', 'employee'];

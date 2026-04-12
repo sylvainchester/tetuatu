@@ -1,4 +1,4 @@
-const { json, parseBody, getUserFromRequest, methodNotAllowed, supabaseAdmin } = require('../_lib/common');
+const { json, parseBody, getUserFromRequest, methodNotAllowed, supabaseAdmin } = require('../../api-lib/common');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);

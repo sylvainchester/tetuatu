@@ -4,9 +4,9 @@ const {
   getUserFromRequest,
   methodNotAllowed,
   supabaseAdmin
-} = require('../_lib/common');
-const { applyCors, handlePreflight } = require('../_lib/cors');
-const { sendPushToUsers } = require('../_lib/pushSender');
+} = require('../../api-lib/common');
+const { applyCors, handlePreflight } = require('../../api-lib/cors');
+const { sendPushToUsers } = require('../../api-lib/pushSender');
 
 function parseTimestamp(value) {
   const ts = Date.parse(String(value || ''));

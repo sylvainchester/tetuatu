@@ -3,8 +3,8 @@ const {
   getUserFromRequest,
   methodNotAllowed,
   supabaseAdmin
-} = require('../_lib/common');
-const { applyCors, handlePreflight } = require('../_lib/cors');
+} = require('../../api-lib/common');
+const { applyCors, handlePreflight } = require('../../api-lib/cors');
 
 function normalizeTitle(title) {
   return String(title || '').replace(/^(correction\s+)+/i, '').trim();

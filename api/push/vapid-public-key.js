@@ -1,4 +1,4 @@
-const { json, methodNotAllowed } = require('../_lib/common');
+const { json, methodNotAllowed } = require('../../api-lib/common');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);

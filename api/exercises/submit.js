@@ -4,9 +4,9 @@ const {
   getUserFromRequest,
   methodNotAllowed,
   supabaseAdmin
-} = require('../_lib/common');
-const { sendPushToUsers } = require('../_lib/pushSender');
-const { applyCors, handlePreflight } = require('../_lib/cors');
+} = require('../../api-lib/common');
+const { sendPushToUsers } = require('../../api-lib/pushSender');
+const { applyCors, handlePreflight } = require('../../api-lib/cors');
 
 module.exports = async function handler(req, res) {
   if (handlePreflight(req, res)) return;
