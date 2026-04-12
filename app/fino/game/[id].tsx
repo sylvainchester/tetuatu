@@ -24,7 +24,6 @@ import { supabase } from '@/lib/supabase';
 import {
   applyFinoPenalty,
   defineFinoRule,
-  getFinoRuleLabel,
   getFinoSnapshot,
   isFinoCardAuthorized,
   passFinoTurn,
@@ -42,7 +41,12 @@ type TargetRect = {
   height: number;
 };
 
-const JACK_CHOICES = ['heart', 'diamond', 'spade', 'club'] as const;
+const JACK_CHOICES = [
+  { label: 'Coeur', value: 'h' },
+  { label: 'Carreau', value: 'd' },
+  { label: 'Pique', value: 's' },
+  { label: 'Trèfle', value: 'c' },
+] as const;
 const THREE_CHOICES = ['2', '3', '4', '5', '6', '7', '8', '9', '0', 'j', 'q', 'k', '1', 'a'] as const;
 
 function splitCards(cards: string | null | undefined) {
@@ -137,6 +141,14 @@ function DraggableCard({
   );
 }
 
+function groupCards<T>(items: T[], size: number) {
+  const groups: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    groups.push(items.slice(index, index + size));
+  }
+  return groups;
+}
+
 export default function FinoGameScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { width, height } = useWindowDimensions();
@@ -158,13 +170,12 @@ export default function FinoGameScreen() {
   const gameId = Number(id);
   const seat1 = rows.find((row) => row.seat === 'seat1');
   const seat2 = rows.find((row) => row.seat === 'seat2');
-  const deck = rows.find((row) => row.seat === 'deck');
   const play = rows.find((row) => row.seat === 'play');
   const me = seat1?.player_name === username ? seat1 : seat2?.player_name === username ? seat2 : undefined;
   const opponent = me?.seat === 'seat1' ? seat2 : me?.seat === 'seat2' ? seat1 : undefined;
   const myCards = useMemo(() => splitCards(me?.cards), [me?.cards]);
   const opponentCards = useMemo(() => splitCards(opponent?.cards), [opponent?.cards]);
-  const deckCards = useMemo(() => splitCards(deck?.cards), [deck?.cards]);
+  const myCardRows = useMemo(() => groupCards(myCards, 7), [myCards]);
   const canPlay = !!me && me.turn_flag === 'Turn';
   const specialRule = me?.last_card ?? '-';
   const visibleOpponentCards = specialRule === '0' || specialRule === '6';
@@ -175,9 +186,12 @@ export default function FinoGameScreen() {
   const canSwap = canPlay && specialRule === '5';
   const canSteal = canPlay && specialRule === '0';
   const winner = seat1 && splitCards(seat1.cards).length === 0 ? seat1.player_name : seat2 && splitCards(seat2.cards).length === 0 ? seat2.player_name : '';
-  const topCardWidth = Math.min(Math.max(width * 0.2, 92), 150);
-  const playerCardWidth = Math.min(Math.max(width * 0.18, 76), 132);
+  const topCardWidth = Math.min(Math.max(width * 0.15, 72), 118);
+  const playerCardWidth = Math.min(Math.max(width * 0.15, 72), 118);
   const opponentCardWidth = Math.min(Math.max(width * 0.18, 68), 132);
+  const opponentZoneHeight = opponentCardWidth * 1.45 + 34;
+  const playerRowOverlap = Math.min(10, playerCardWidth * 0.12);
+  const playerRowWidth = Math.max(54, Math.min(playerCardWidth, (width - 28 + playerRowOverlap * 6) / 7));
 
   const loadGame = useCallback(async (currentUsername?: string, silent = false) => {
     const activeUsername = currentUsername || username;
@@ -308,11 +322,26 @@ export default function FinoGameScreen() {
   async function runAction(action: () => Promise<void>) {
     setBusy(true);
     try {
+      setError('');
+      console.log('[Fino] runAction:start', {
+        gameId,
+        username,
+        canPlay,
+        specialRule,
+        selectedCard,
+      });
       await action();
+      console.log('[Fino] runAction:success');
       await loadGame(username, true);
     } catch (err: any) {
-      Alert.alert('Action impossible', err.message || 'Action impossible.');
+      const message = err?.message || 'Action impossible.';
+      console.error('[Fino] runAction:error', err);
+      setError(message);
+      if (Platform.OS !== 'web') {
+        Alert.alert('Action impossible', message);
+      }
     } finally {
+      console.log('[Fino] runAction:end');
       setBusy(false);
     }
   }
@@ -327,7 +356,7 @@ export default function FinoGameScreen() {
       if (canSwap) return;
       const authorized = play?.cards ? isFinoCardAuthorized(card, play.cards, me?.jack_rule) : false;
       if (!authorized) {
-        Alert.alert('Carte interdite', 'Cette carte ne peut pas être jouée sur la pile.');
+        setError('Cette carte ne peut pas être jouée sur la pile.');
         return;
       }
       await runAction(() => playFinoCard(gameId, username, card));
@@ -343,7 +372,7 @@ export default function FinoGameScreen() {
     if (!selectedCard || busy || !canPlay || needsJackChoice || needsThreeChoice || !!winner || canSwap) return;
     const authorized = play?.cards ? isFinoCardAuthorized(selectedCard, play.cards, me?.jack_rule) : false;
     if (!authorized) {
-      Alert.alert('Carte interdite', 'Cette carte ne peut pas être jouée sur la pile.');
+      setError('Cette carte ne peut pas être jouée sur la pile.');
       return;
     }
     await runAction(() => playFinoCard(gameId, username, selectedCard));
@@ -353,7 +382,7 @@ export default function FinoGameScreen() {
     if (busy || !canPlay || needsJackChoice || needsThreeChoice || !!winner) return;
     if (canSwap) {
       if (!selectedCard) {
-        Alert.alert('Choisissez une carte', 'Sélectionnez d’abord une carte à échanger.');
+        setError('Sélectionnez d’abord une carte à échanger.');
         return;
       }
       await runAction(() => swapFinoCard(gameId, username, selectedCard));
@@ -362,6 +391,22 @@ export default function FinoGameScreen() {
     if (canDraw) {
       await runAction(() => pickFinoCardFromDeck(gameId, username));
     }
+  }
+
+  async function handleDefineRule(choice: string) {
+    setError('');
+    console.log('[Fino] handleDefineRule:click', {
+      choice,
+      gameId,
+      username,
+      canPlay,
+      myLastCard: me?.last_card,
+      myTurn: me?.turn_flag,
+      needsJackChoice,
+      needsThreeChoice,
+      busy,
+    });
+    await runAction(() => defineFinoRule(gameId, username, choice));
   }
 
   function handleFinoClick() {
@@ -391,21 +436,11 @@ export default function FinoGameScreen() {
     ? winner === username
       ? 'VICTOIRE'
       : 'DÉFAITE'
-    : specialRule === '0'
-      ? 'Choisissez une carte adverse'
-      : specialRule === '5'
-        ? 'Déposez une carte sur le deck'
-        : specialRule === '6'
-          ? 'Main adverse visible'
-          : specialRule === 'p'
-            ? 'Vous pouvez passer'
-            : canPlay
-              ? 'À vous de jouer'
-              : `Tour de ${opponent?.player_name || 'l’adversaire'}`;
+    : '';
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.screen} onLayout={onBoardLayout}>
+      <View style={[styles.screen, !canPlay && !winner ? styles.screenWaiting : null]} onLayout={onBoardLayout}>
         <View style={styles.header}>
           <Pressable onPress={() => router.back()}>
             <Text style={styles.back}>Retour</Text>
@@ -426,64 +461,93 @@ export default function FinoGameScreen() {
                 <Text style={styles.smallMeta}>{seat1?.player_name || '?'} {seat1?.points ?? 0} / {seat2?.player_name || '?'} {seat2?.points ?? 0}</Text>
               </View>
 
-              <View style={styles.playerHandRow}>
-                {myCards.map((card, index) => {
-                  const authorized = play?.cards ? isFinoCardAuthorized(card, play.cards, me?.jack_rule) : false;
-                  const disabled = busy || !canPlay || needsJackChoice || needsThreeChoice || !!winner || (canSwap ? false : !authorized);
-                  const overlap = myCards.length > 6 ? -playerCardWidth * 0.32 : -playerCardWidth * 0.18;
-                  return (
-                    <View key={`${card}-${index}`} style={{ marginLeft: index === 0 ? 0 : overlap }}>
-                      <DraggableCard
-                        card={card}
-                        width={playerCardWidth}
-                        disabled={disabled && Platform.OS !== 'web'}
-                        selected={selectedCard === card}
-                        onSelect={() => setSelectedCard((current) => current === card ? '' : card)}
-                        onDrop={(point) => handleDrop(card, point)}
-                      />
+              <View style={styles.playerHandGrid}>
+                {myCardRows.map((row, rowIndex) => (
+                  <View key={`row-${rowIndex}`} style={styles.playerHandRow}>
+                    {row.map((card, index) => {
+                      const authorized = play?.cards ? isFinoCardAuthorized(card, play.cards, me?.jack_rule) : false;
+                      const disabled = busy || !canPlay || needsJackChoice || needsThreeChoice || !!winner || (canSwap ? false : !authorized);
+                      return (
+                        <View
+                          key={`${card}-${rowIndex}-${index}`}
+                          style={[
+                            styles.playerCardCell,
+                            { width: playerRowWidth },
+                            index > 0 ? { marginLeft: -playerRowOverlap } : null,
+                          ]}
+                        >
+                          <DraggableCard
+                            card={card}
+                            width={playerCardWidth}
+                            disabled={disabled && Platform.OS !== 'web'}
+                            selected={selectedCard === card}
+                            onSelect={() => setSelectedCard((current) => current === card ? '' : card)}
+                            onDrop={(point) => handleDrop(card, point)}
+                          />
+                        </View>
+                      );
+                    })}
+                    {canPass && rowIndex === myCardRows.length - 1 && row.length < 7 ? (
+                      <View style={[styles.playerCardCell, { width: playerRowWidth }, row.length > 0 ? { marginLeft: -playerRowOverlap } : null]}>
+                        <Pressable style={styles.passCardWrap} onPress={() => runAction(() => passFinoTurn(gameId, username))} disabled={busy}>
+                          <Image source={finoCardAssets.pass} style={styles.cardImage} resizeMode="contain" />
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ))}
+                {canPass && myCards.length === 0 ? (
+                  <View style={styles.playerHandRow}>
+                    <View style={styles.playerCardCell}>
+                      <Pressable style={styles.passCardWrap} onPress={() => runAction(() => passFinoTurn(gameId, username))} disabled={busy}>
+                        <Image source={finoCardAssets.pass} style={styles.cardImage} resizeMode="contain" />
+                      </Pressable>
                     </View>
-                  );
-                })}
+                  </View>
+                ) : null}
               </View>
+
+              {!winner && canPlay ? (
+                <View style={styles.selectedActionBar}>
+                  {selectedCard && !canSwap ? (
+                    <Pressable style={[styles.primaryActionButton, busy && styles.buttonDisabled]} onPress={handlePlaySelectedCard} disabled={busy || !canPlay}>
+                      <Text style={styles.primaryActionText}>Jouer {selectedCard}</Text>
+                    </Pressable>
+                  ) : null}
+                  {selectedCard && canSwap ? (
+                    <Pressable style={[styles.primaryActionButton, busy && styles.buttonDisabled]} onPress={handleDeckAction} disabled={busy || !canPlay}>
+                      <Text style={styles.primaryActionText}>Échanger {selectedCard}</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
 
-            <View style={styles.centerZone}>
+            <View style={[styles.deckZone, { bottom: opponentZoneHeight - 6 }]}>
               <View style={styles.deckRow}>
                 <Pressable
                   ref={deckRef}
-                  style={[styles.centerCardSlot, canDraw && styles.activeSlot]}
+                  style={styles.centerCardSlot}
                   onPress={handleDeckAction}
                   disabled={(!canDraw && !canSwap) || busy}
                 >
                   <Image source={finoCardAssets.back} style={[styles.centerCardImage, { width: topCardWidth, height: topCardWidth * 1.45 }]} resizeMode="contain" />
-                  <Text style={styles.deckCount}>{deckCards.length}</Text>
                 </Pressable>
 
                 <Pressable ref={pileRef} style={styles.centerCardSlot} onPress={handlePlaySelectedCard} disabled={busy || !canPlay || canSwap}>
                   <Image source={assetForCard(play?.cards || 'back')} style={[styles.centerCardImage, { width: topCardWidth, height: topCardWidth * 1.45 }]} resizeMode="contain" />
                 </Pressable>
               </View>
+            </View>
 
+            <View style={styles.centerZone}>
               <View style={styles.bannerWrap}>
-                <Text style={[styles.bannerText, winner && styles.bannerWinner]}>{statusText}</Text>
+                {statusText ? <Text style={[styles.bannerText, winner && styles.bannerWinner]}>{statusText}</Text> : null}
                 {error ? <Text style={styles.error}>{error}</Text> : null}
-                {(specialRule !== '-' && specialRule !== 'p' && specialRule !== '6' && !winner) ? (
-                  <Text style={styles.ruleHint}>Règle: {getFinoRuleLabel(me?.jack_rule || specialRule)}</Text>
-                ) : null}
-              </View>
-
-              <View style={styles.actionRow}>
-                <Pressable style={[styles.actionButton, !canPass && styles.buttonDisabled]} onPress={() => runAction(() => passFinoTurn(gameId, username))} disabled={!canPass || busy}>
-                  <Image source={finoCardAssets.pass} style={styles.actionImage} resizeMode="contain" />
-                </Pressable>
-                <Pressable style={[styles.refreshButton, busy && styles.buttonDisabled]} onPress={() => loadGame(username)} disabled={busy}>
-                  <Text style={styles.refreshText}>Rafraîchir</Text>
-                </Pressable>
               </View>
             </View>
 
-            <View style={styles.bottomZone}>
-              <Text style={styles.opponentName}>{opponent?.player_name || 'Adversaire'} · {opponentCards.length} cartes</Text>
+            <View style={[styles.bottomZone, { height: opponentZoneHeight }]}>
               <View style={styles.opponentRow}>
                 {opponentCards.map((card, index) => {
                   const overlap = opponentCards.length > 6 ? -opponentCardWidth * 0.58 : -opponentCardWidth * 0.42;
@@ -509,17 +573,36 @@ export default function FinoGameScreen() {
               <View style={[styles.overlay, { height: boardHeight }]}>
                 <View style={styles.choicePanel}>
                   <Text style={styles.choiceTitle}>{needsJackChoice ? 'Choisissez une couleur' : 'Choisissez la valeur imposée'}</Text>
+                  {error ? <Text style={styles.choiceError}>{error}</Text> : null}
                   <View style={styles.choiceGrid}>
-                    {(needsJackChoice ? JACK_CHOICES : THREE_CHOICES).map((choice) => (
-                      <Pressable
-                        key={choice}
-                        style={[styles.choiceCard, busy && styles.buttonDisabled]}
-                        onPress={() => runAction(() => defineFinoRule(gameId, username, choice))}
-                        disabled={busy}
-                      >
-                        <Image source={assetForCard(choice)} style={styles.choiceImage} resizeMode="contain" />
-                      </Pressable>
-                    ))}
+                    {needsJackChoice
+                      ? JACK_CHOICES.map((choice) => (
+                          <Pressable
+                            key={choice.value}
+                            style={[
+                              styles.choiceTextButton,
+                              busy && styles.buttonDisabled,
+                            ]}
+                            onPress={() => handleDefineRule(choice.value)}
+                            disabled={busy}
+                          >
+                            <Text style={styles.choiceTextLabel}>{choice.label}</Text>
+                          </Pressable>
+                        ))
+                      : THREE_CHOICES.map((choice) => (
+                          <Pressable
+                            key={choice}
+                            style={[
+                              styles.choiceTextButton,
+                              styles.choiceValueTextButton,
+                              busy && styles.buttonDisabled,
+                            ]}
+                            onPress={() => handleDefineRule(choice)}
+                            disabled={busy}
+                          >
+                            <Text style={styles.choiceTextLabel}>{choice}</Text>
+                          </Pressable>
+                        ))}
                   </View>
                 </View>
               </View>
@@ -555,6 +638,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
+  screenWaiting: {
+    backgroundColor: '#0000cc',
+  },
   header: {
     paddingHorizontal: 12,
     paddingTop: 8,
@@ -584,7 +670,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topZone: {
-    flex: 1,
+    flexShrink: 0,
     paddingHorizontal: 8,
     paddingTop: 4,
   },
@@ -602,11 +688,25 @@ const styles = StyleSheet.create({
     color: '#e5e7eb',
     fontSize: 13,
   },
+  playerHandGrid: {
+    paddingTop: 6,
+    maxWidth: 860,
+    alignSelf: 'center',
+    gap: 8,
+  },
   playerHandRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingTop: 6,
+    alignItems: 'flex-start',
+  },
+  playerCardCell: {
+    alignItems: 'center',
+  },
+  selectedActionBar: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingTop: 10,
   },
   playerCardWrap: {
     aspectRatio: 0.69,
@@ -620,20 +720,32 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 8,
   },
+  passCardWrap: {
+    width: '100%',
+    aspectRatio: 0.69,
+  },
   cardImage: {
     width: '100%',
     height: '100%',
   },
   centerZone: {
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 18,
+    justifyContent: 'flex-start',
+    paddingTop: 8,
     gap: 10,
+    zIndex: 2,
+    flex: 1,
+  },
+  deckZone: {
+    position: 'absolute',
+    left: 8,
+    zIndex: 3,
   },
   deckRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    justifyContent: 'flex-start',
   },
   centerCardSlot: {
     alignItems: 'center',
@@ -641,12 +753,6 @@ const styles = StyleSheet.create({
     minWidth: 96,
     minHeight: 140,
     position: 'relative',
-  },
-  activeSlot: {
-    shadowColor: '#f59e0b',
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
-    elevation: 8,
   },
   centerCardImage: {
     height: 180,
@@ -691,27 +797,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    alignItems: 'center',
+    minHeight: 1,
   },
-  actionButton: {
+  primaryActionButton: {
+    backgroundColor: '#d97706',
     borderRadius: 12,
-    overflow: 'hidden',
-  },
-  actionImage: {
-    width: 84,
-    height: 48,
-  },
-  refreshButton: {
-    backgroundColor: '#1f2937',
-    borderRadius: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  refreshText: {
-    color: '#fff',
-    fontWeight: '800',
+  primaryActionText: {
+    color: '#111827',
+    fontWeight: '900',
   },
   bottomZone: {
     position: 'absolute',
@@ -719,17 +815,11 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     paddingBottom: 6,
-  },
-  opponentName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '800',
-    textAlign: 'center',
-    marginBottom: 6,
+    zIndex: 1,
   },
   opponentRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     alignItems: 'flex-end',
     paddingHorizontal: 6,
   },
@@ -743,6 +833,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 12,
+    zIndex: 200,
+    elevation: 200,
   },
   choicePanel: {
     backgroundColor: '#111827',
@@ -753,12 +845,19 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 860,
     gap: 14,
+    zIndex: 201,
+    elevation: 201,
   },
   choiceTitle: {
     color: '#fff',
     fontSize: 22,
     fontWeight: '900',
     textAlign: 'center',
+  },
+  choiceError: {
+    color: '#fca5a5',
+    textAlign: 'center',
+    fontWeight: '700',
   },
   choiceGrid: {
     flexDirection: 'row',
@@ -767,12 +866,46 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   choiceCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 12,
     overflow: 'hidden',
+    backgroundColor: '#1f2937',
+    borderWidth: 1,
+    borderColor: '#374151',
   },
-  choiceImage: {
+  choiceSuitCard: {
+    width: 104,
+    height: 104,
+  },
+  choiceValueCard: {
+    width: 86,
+    height: 118,
+  },
+  choiceSuitImage: {
+    width: 58,
+    height: 58,
+  },
+  choiceValueImage: {
     width: 72,
     height: 104,
+  },
+  choiceTextButton: {
+    minWidth: 132,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  choiceValueTextButton: {
+    minWidth: 72,
+  },
+  choiceTextLabel: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '900',
   },
   finoOverlay: {
     position: 'absolute',

@@ -44,7 +44,7 @@ export default function HubScreen() {
         await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
         setSession(null);
         setAccessChecked(true);
-        setAuthError('Session expirée. Reconnecte-toi.');
+        setAuthError('Sessão expirada. Entre novamente.');
         return;
       }
       setSession(data.session);
@@ -79,7 +79,7 @@ export default function HubScreen() {
         } else {
           router.replace('/');
           if (type === 'signup') {
-            setAuthInfo('Email confirme. Tu peux te connecter.');
+            setAuthInfo('E-mail confirmado. Você já pode entrar.');
           }
         }
       }
@@ -111,7 +111,7 @@ export default function HubScreen() {
         if (!access) {
           await supabase.auth.signOut();
           await logoutImpostor();
-          setAuthError('Acces refuse: email non whitelist.');
+          setAuthError('Acesso negado: e-mail não autorizado.');
           setAccessChecked(true);
           return;
         }
@@ -119,7 +119,7 @@ export default function HubScreen() {
         setAccessChecked(true);
       })
       .catch((err: any) => {
-        setAuthError(err.message || 'Erreur verification acces.');
+        setAuthError(err.message || 'Erro ao verificar acesso.');
         setAccessChecked(true);
       });
   }, [session, logoutImpostor]);
@@ -130,7 +130,7 @@ export default function HubScreen() {
     router.replace('/reservations');
   }, [accessChecked, accessRole]);
 
-  const usernameLabel = useMemo(() => 'Pseudo', []);
+  const usernameLabel = useMemo(() => 'Apelido', []);
 
   async function handleAuth() {
     setAuthError('');
@@ -139,7 +139,7 @@ export default function HubScreen() {
       if (isRegister) {
         const username = form.username.trim();
         if (!username) {
-          setAuthError('Pseudo requis pour creer un compte.');
+          setAuthError('Apelido obrigatório para criar uma conta.');
           return;
         }
         const { data, error } = await supabase.auth.signUp({
@@ -150,7 +150,7 @@ export default function HubScreen() {
           }
         });
         if (error) throw error;
-        setAuthInfo('Compte cree. Verifie ton email pour confirmer ton inscription.');
+        setAuthInfo('Conta criada. Verifique seu e-mail para confirmar o cadastro.');
         if (data.session) {
           await supabase.auth.signOut();
         }
@@ -166,7 +166,7 @@ export default function HubScreen() {
       }
       setForm(initialForm);
     } catch (err: any) {
-      setAuthError(err.message || 'Erreur auth');
+      setAuthError(err.message || 'Erro de autenticação');
     }
   }
 
@@ -174,16 +174,16 @@ export default function HubScreen() {
     setAuthError('');
     setAuthInfo('');
     if (!form.email.trim()) {
-      setAuthError('Email requis pour le reset.');
+      setAuthError('E-mail obrigatório para redefinir a senha.');
       return;
     }
     try {
       const redirectTo = Linking.createURL('/reset');
       const { error } = await supabase.auth.resetPasswordForEmail(form.email, { redirectTo });
       if (error) throw error;
-      setAuthInfo('Email de reinitialisation envoye.');
+      setAuthInfo('E-mail de redefinição enviado.');
     } catch (err: any) {
-      setAuthError(err.message || 'Erreur recovery');
+      setAuthError(err.message || 'Erro na recuperação');
     }
   }
 
@@ -195,7 +195,7 @@ export default function HubScreen() {
       logoutImpostor()
     ]);
     if (supabaseResult.status === 'rejected') {
-      setAuthError('Deconnexion impossible. Reessaie.');
+      setAuthError('Não foi possível sair. Tente novamente.');
       return;
     }
     router.replace('/');
@@ -204,7 +204,7 @@ export default function HubScreen() {
   async function handleEnterImpostor() {
     const name = profileName;
     if (!name) {
-      setAuthError('Pseudo manquant pour imposteur.');
+      setAuthError('Apelido ausente para Impostor.');
       return;
     }
     const ok = await ensureUser(name);
@@ -221,10 +221,9 @@ export default function HubScreen() {
         </View>
         <View style={styles.authCard}>
           <Text style={styles.authTitle}>Tetuatu</Text>
-          <Text style={styles.authSubtitle}>Coinche + Imposteur, une seule connexion.</Text>
 
           <View style={styles.authField}>
-            <Text style={styles.authLabel}>Email</Text>
+            <Text style={styles.authLabel}>E-mail</Text>
             <TextInput
               autoCapitalize="none"
               autoCorrect={false}
@@ -234,13 +233,13 @@ export default function HubScreen() {
               value={form.email}
               onChangeText={(value) => setForm((prev) => ({ ...prev, email: value }))}
               style={styles.authInput}
-              placeholder="toi@email.fr"
+              placeholder="voce@email.com"
               placeholderTextColor="#6f7a87"
             />
           </View>
 
           <View style={styles.authField}>
-            <Text style={styles.authLabel}>Mot de passe</Text>
+            <Text style={styles.authLabel}>Senha</Text>
             <TextInput
               secureTextEntry={!showPassword}
               autoCorrect={false}
@@ -254,7 +253,7 @@ export default function HubScreen() {
             />
             <Pressable style={styles.passwordToggleRow} onPress={() => setShowPassword((prev) => !prev)}>
               <View style={[styles.passwordToggleBox, showPassword && styles.passwordToggleBoxActive]} />
-              <Text style={styles.passwordToggleLabel}>Afficher le mot de passe</Text>
+              <Text style={styles.passwordToggleLabel}>Mostrar senha</Text>
             </Pressable>
           </View>
 
@@ -268,7 +267,7 @@ export default function HubScreen() {
                 value={form.username}
                 onChangeText={(value) => setForm((prev) => ({ ...prev, username: value }))}
                 style={styles.authInput}
-                placeholder="Ton pseudo"
+                placeholder="Seu apelido"
                 placeholderTextColor="#6f7a87"
               />
             </View>
@@ -278,11 +277,11 @@ export default function HubScreen() {
           {authInfo ? <Text style={styles.authInfo}>{authInfo}</Text> : null}
 
           <Pressable style={styles.authButton} onPress={handleAuth}>
-            <Text style={styles.authButtonText}>{isRegister ? 'Creer un compte' : 'Connexion'}</Text>
+            <Text style={styles.authButtonText}>{isRegister ? 'Criar conta' : 'Entrar'}</Text>
           </Pressable>
           {!isRegister ? (
             <Pressable onPress={handleRecovery}>
-              <Text style={styles.authRecovery}>Mot de passe oublie ?</Text>
+              <Text style={styles.authRecovery}>Esqueceu a senha?</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -293,7 +292,7 @@ export default function HubScreen() {
             }}
           >
             <Text style={styles.authToggle}>
-              {isRegister ? 'Deja un compte ? Se connecter' : 'Pas de compte ? S inscrire'}
+              {isRegister ? 'Já tem conta? Entrar' : 'Não tem conta? Cadastre-se'}
             </Text>
           </Pressable>
         </View>

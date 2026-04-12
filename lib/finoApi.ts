@@ -496,14 +496,26 @@ export async function pickFinoOpponentCard(game: number, username: string, picke
 }
 
 export async function defineFinoRule(game: number, username: string, kind: string) {
+  console.log('[FinoApi] defineFinoRule:start', { game, username, kind });
   const state = await resolveFinoGame(game, username);
+  console.log('[FinoApi] defineFinoRule:state', {
+    mySeat: state.mySeat,
+    turnFlag: state.me.turn_flag,
+    lastCard: state.me.last_card,
+    opponent: state.opponent.player_name,
+  });
   if (state.me.turn_flag !== 'Turn' || !['3', 'j'].includes(state.me.last_card ?? '')) {
+    console.error('[FinoApi] defineFinoRule:forbidden', {
+      turnFlag: state.me.turn_flag,
+      lastCard: state.me.last_card,
+    });
     throw new Error('Choix de règle non autorisé.');
   }
 
   await updateFinoRow(state.me.id, { turn_flag: '', last_card: '-' });
   await updateFinoRow(state.opponent.id, { turn_flag: 'Turn' });
   await Promise.all(state.rows.map((row) => updateFinoRow(row.id, { jack_rule: kind })));
+  console.log('[FinoApi] defineFinoRule:success', { game, username, kind });
 }
 
 export async function applyFinoPenalty(game: number, username: string) {
