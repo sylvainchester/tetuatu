@@ -231,14 +231,6 @@ export default function RootLayout() {
   }
 
   const showInstallBanner = Platform.OS === 'web' && !isStandalone && !installDismissed;
-  const isIOSWeb =
-    Platform.OS === 'web' &&
-    typeof navigator !== 'undefined' &&
-    /iphone|ipad|ipod/i.test(navigator.userAgent);
-  const installHelpText =
-    isIOSWeb
-      ? 'Installez l’app: bouton Partager puis Ajouter à l’écran d’accueil.'
-      : 'Installez l’app: menu du navigateur puis Ajouter à l’écran d’accueil.';
 
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -283,20 +275,12 @@ export default function RootLayout() {
       ) : null}
       {showInstallBanner ? (
         <View style={[styles.installBanner, updateReady && styles.installBannerWithUpdate]}>
-          <View style={styles.installTextWrap}>
-            <Text style={styles.installTitle}>Installer Tetuatu</Text>
-            <Text style={styles.installText}>{installHelpText}</Text>
-          </View>
-          <View style={styles.installActions}>
-            {installPromptEvent ? (
-              <Pressable style={styles.installButton} onPress={handleInstallApp}>
-                <Text style={styles.installButtonText}>Installer</Text>
-              </Pressable>
-            ) : null}
-            <Pressable style={styles.installLaterButton} onPress={() => setInstallDismissed(true)}>
-              <Text style={styles.installLaterText}>Plus tard</Text>
-            </Pressable>
-          </View>
+          <Pressable
+            style={[styles.installButton, !installPromptEvent && styles.installButtonDisabled]}
+            onPress={handleInstallApp}
+            disabled={!installPromptEvent}>
+            <Text style={styles.installButtonText}>INSTALAR O APLICATIVO</Text>
+          </Pressable>
         </View>
       ) : null}
       <Stack>
@@ -374,40 +358,19 @@ const styles = StyleSheet.create({
   installBannerWithUpdate: {
     top: 72
   },
-  installTextWrap: {
-    gap: 2
-  },
-  installTitle: {
-    color: '#3b2f1d',
-    fontWeight: '800'
-  },
-  installText: {
-    color: '#6f5e46'
-  },
-  installActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 8
-  },
   installButton: {
     backgroundColor: '#171717',
     borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 8
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  installButtonDisabled: {
+    opacity: 0.6
   },
   installButtonText: {
     color: '#fff5e6',
     fontWeight: '800'
-  },
-  installLaterButton: {
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#d5c3a1',
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  installLaterText: {
-    color: '#3b2f1d',
-    fontWeight: '700'
   }
 });

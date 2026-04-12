@@ -471,7 +471,7 @@ export default function ReservationsScreen() {
     <SafeAreaView style={styles.safe}>
       <View style={styles.hero}>
         <View style={styles.heroTextWrap}>
-          <Text style={styles.title}>Montegordo</Text>
+          <Text style={styles.title}>CASA DA AUDIENCIA</Text>
           <Text style={styles.subtitle}>
             {accessRole === 'manager'
               ? texts.managerSubtitle
