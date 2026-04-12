@@ -104,12 +104,13 @@ async function findRecipientUserIds() {
 module.exports = async function handler(req, res) {
   if (!['GET', 'POST', 'HEAD'].includes(req.method || '')) return methodNotAllowed(res, ['GET', 'POST', 'HEAD']);
   if (!hasValidCallerSecret(req)) return json(res, 401, { error: 'unauthorized' });
+  const force = String(req.query?.force || '').trim() === '1';
 
   const nowLisbon = parseLisbonNow();
   const todayIso = `${nowLisbon.year}-${String(nowLisbon.month).padStart(2, '0')}-${String(nowLisbon.day).padStart(2, '0')}`;
   const tomorrowIso = addDaysIso(todayIso, 1);
 
-  if (nowLisbon.hour !== 9) {
+  if (!force && nowLisbon.hour !== 9) {
     return json(res, 200, {
       success: true,
       skipped: true,
@@ -117,7 +118,8 @@ module.exports = async function handler(req, res) {
       timezone: TIMEZONE,
       currentHour: nowLisbon.hour,
       targetHour: 9,
-      targetDate: tomorrowIso
+      targetDate: tomorrowIso,
+      forceAllowed: true
     });
   }
 
@@ -179,6 +181,7 @@ module.exports = async function handler(req, res) {
   return json(res, 200, {
     success: true,
     sent: true,
+    forced: force,
     targetDate: tomorrowIso,
     timezone: TIMEZONE,
     arrivalsCount,
