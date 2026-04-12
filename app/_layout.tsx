@@ -8,8 +8,10 @@ import 'react-native-reanimated';
 import axios from 'axios';
 
 import { getImpostorAuthHeaders } from '@/lib/impostor/api';
+import registerForWebPushAsync from '@/lib/impostor/registerForWebPushAsync';
 import registerForPushNotificationsAsync from '@/lib/impostor/registerForPushNotificationsAsync';
 import { getPushApiBase } from '@/lib/pushApi';
+import { supabase } from '@/lib/supabase';
 import { useWakeLock } from '@/lib/wakeLock';
 import { useGameStore } from '@/store/impostor/useGameStore';
 
@@ -31,6 +33,10 @@ export default function RootLayout() {
   const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
   const [isStandalone, setIsStandalone] = useState(false);
   const [installDismissed, setInstallDismissed] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
+  const [webNotifPermission, setWebNotifPermission] = useState<'default' | 'denied' | 'granted' | null>(null);
+  const [enablingWebNotif, setEnablingWebNotif] = useState(false);
+  const [webNotifError, setWebNotifError] = useState('');
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const swFingerprintRef = useRef<string | null>(null);
 
@@ -152,6 +158,18 @@ export default function RootLayout() {
   }, [setPushToken]);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setHasSession(Boolean(data.session));
+    });
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      setHasSession(Boolean(session));
+    });
+    return () => {
+      subscription.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
 
     const detectStandalone = () => {
@@ -194,6 +212,29 @@ export default function RootLayout() {
   }, []);
 
   useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    if (typeof Notification === 'undefined') {
+      setWebNotifPermission(null);
+      return;
+    }
+
+    const syncPermission = () => {
+      setWebNotifPermission(Notification.permission);
+      if (Notification.permission === 'granted') {
+        setWebNotifError('');
+      }
+    };
+
+    syncPermission();
+    document.addEventListener('visibilitychange', syncPermission);
+    window.addEventListener('focus', syncPermission);
+    return () => {
+      document.removeEventListener('visibilitychange', syncPermission);
+      window.removeEventListener('focus', syncPermission);
+    };
+  }, []);
+
+  useEffect(() => {
     const apiUrl = getPushApiBase();
     if (!apiUrl || !user || !pushToken) {
       return;
@@ -230,7 +271,33 @@ export default function RootLayout() {
     }
   }
 
+  async function handleEnableWebNotifications() {
+    if (Platform.OS !== 'web') return;
+    if (!hasSession) return;
+    if (typeof Notification === 'undefined') return;
+
+    setEnablingWebNotif(true);
+    setWebNotifError('');
+    try {
+      if (Notification.permission === 'denied') {
+        setWebNotifError('Notificações bloqueadas no navegador. Ative nas configurações do site.');
+        return;
+      }
+      const subscription = await registerForWebPushAsync();
+      setWebNotifPermission(Notification.permission);
+      if (!subscription || Notification.permission !== 'granted') {
+        setWebNotifError('Permissão necessária para receber lembretes.');
+      }
+    } catch (err: any) {
+      setWebNotifError(err?.message || 'Não foi possível ativar as notificações.');
+    } finally {
+      setEnablingWebNotif(false);
+    }
+  }
+
   const showInstallBanner = Platform.OS === 'web' && !isStandalone && !installDismissed;
+  const showWebNotifBanner = Platform.OS === 'web' && hasSession && webNotifPermission !== 'granted';
+  const webNotifBannerTop = updateReady ? (showInstallBanner ? 136 : 72) : (showInstallBanner ? 72 : 8);
 
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -281,6 +348,15 @@ export default function RootLayout() {
             disabled={!installPromptEvent}>
             <Text style={styles.installButtonText}>INSTALAR O APLICATIVO</Text>
           </Pressable>
+        </View>
+      ) : null}
+      {showWebNotifBanner ? (
+        <View style={[styles.notifBanner, { top: webNotifBannerTop }]}>
+          <Text style={styles.notifTitle}>Ative as notificações para receber lembretes.</Text>
+          <Pressable style={[styles.notifButton, enablingWebNotif && styles.notifButtonDisabled]} onPress={handleEnableWebNotifications} disabled={enablingWebNotif}>
+            <Text style={styles.notifButtonText}>{enablingWebNotif ? 'ATIVANDO...' : 'ATIVAR NOTIFICAÇÕES'}</Text>
+          </Pressable>
+          {webNotifError ? <Text style={styles.notifErrorText}>{webNotifError}</Text> : null}
         </View>
       ) : null}
       <Stack>
@@ -372,5 +448,41 @@ const styles = StyleSheet.create({
   installButtonText: {
     color: '#fff5e6',
     fontWeight: '800'
+  },
+  notifBanner: {
+    position: 'absolute',
+    left: 8,
+    right: 8,
+    zIndex: 9997,
+    backgroundColor: '#10233f',
+    borderColor: '#2d4f76',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10
+  },
+  notifTitle: {
+    color: '#dbeafe',
+    fontWeight: '700'
+  },
+  notifButton: {
+    backgroundColor: '#0ea5e9',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  notifButtonDisabled: {
+    opacity: 0.65
+  },
+  notifButtonText: {
+    color: '#06243a',
+    fontWeight: '900'
+  },
+  notifErrorText: {
+    color: '#fecaca',
+    fontWeight: '600'
   }
 });
