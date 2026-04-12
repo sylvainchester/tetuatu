@@ -22,6 +22,23 @@ const initialForm = {
   username: ''
 };
 
+function mapAuthErrorMessage(raw?: string) {
+  const message = String(raw || '');
+  if (!message) return 'Erro de autenticação';
+  const lower = message.toLowerCase();
+  if (lower.includes('row-level security policy') || lower.includes('violates row level security')) {
+    return 'Permissão de perfil ausente no banco (RLS). Verifique as policies da tabela profiles no Supabase.';
+  }
+  return message;
+}
+
+function deriveFallbackName(email?: string | null, metadataUsername?: string | null) {
+  const fromMetadata = (metadataUsername || '').trim();
+  if (fromMetadata) return fromMetadata;
+  const local = (email || '').split('@')[0]?.trim() || '';
+  return local || 'jogador';
+}
+
 export default function HubScreen() {
   const [session, setSession] = useState<Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']>(null);
   const [form, setForm] = useState(initialForm);
@@ -79,7 +96,7 @@ export default function HubScreen() {
         } else {
           router.replace('/');
           if (type === 'signup') {
-            setAuthInfo('E-mail confirmado. Você já pode entrar.');
+            setAuthInfo('Cadastro confirmado. Você já pode entrar.');
           }
         }
       }
@@ -102,26 +119,39 @@ export default function HubScreen() {
       return;
     }
     setAccessChecked(false);
-    Promise.all([
-      ensureProfileUsername(session.user),
-      session.user.email ? fetchWhitelistByEmail(session.user.email) : Promise.resolve(null)
-    ])
-      .then(async ([name, access]) => {
-        setProfileName(name);
-        if (!access) {
-          await supabase.auth.signOut();
-          await logoutImpostor();
-          setAuthError('Acesso negado: e-mail não autorizado.');
-          setAccessChecked(true);
-          return;
-        }
-        setAccessRole(access.role);
+    (async () => {
+      const [nameResult, accessResult] = await Promise.allSettled([
+        ensureProfileUsername(session.user),
+        session.user.email ? fetchWhitelistByEmail(session.user.email) : Promise.resolve(null)
+      ]);
+
+      if (nameResult.status === 'fulfilled') {
+        setProfileName(nameResult.value);
+      } else {
+        setProfileName(deriveFallbackName(session.user.email, session.user.user_metadata?.username || null));
+      }
+
+      if (accessResult.status === 'rejected') {
+        setAuthError(mapAuthErrorMessage(accessResult.reason?.message) || 'Erro ao verificar acesso.');
         setAccessChecked(true);
-      })
-      .catch((err: any) => {
-        setAuthError(err.message || 'Erro ao verificar acesso.');
+        return;
+      }
+
+      const access = accessResult.value;
+      if (!access) {
+        await supabase.auth.signOut();
+        await logoutImpostor();
+        setAuthError('Acesso negado: e-mail não autorizado.');
         setAccessChecked(true);
-      });
+        return;
+      }
+
+      setAccessRole(access.role);
+      setAccessChecked(true);
+    })().catch((err: any) => {
+      setAuthError(mapAuthErrorMessage(err?.message) || 'Erro ao verificar acesso.');
+      setAccessChecked(true);
+    });
   }, [session, logoutImpostor]);
 
   useEffect(() => {
@@ -150,9 +180,10 @@ export default function HubScreen() {
           }
         });
         if (error) throw error;
-        setAuthInfo('Conta criada. Verifique seu e-mail para confirmar o cadastro.');
         if (data.session) {
-          await supabase.auth.signOut();
+          setAuthInfo('Conta criada com sucesso. Você já está conectado.');
+        } else {
+          setAuthInfo('Conta criada. Confirme seu e-mail para finalizar o cadastro.');
         }
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({
@@ -166,7 +197,7 @@ export default function HubScreen() {
       }
       setForm(initialForm);
     } catch (err: any) {
-      setAuthError(err.message || 'Erro de autenticação');
+      setAuthError(mapAuthErrorMessage(err?.message));
     }
   }
 
@@ -183,7 +214,7 @@ export default function HubScreen() {
       if (error) throw error;
       setAuthInfo('E-mail de redefinição enviado.');
     } catch (err: any) {
-      setAuthError(err.message || 'Erro na recuperação');
+      setAuthError(mapAuthErrorMessage(err?.message) || 'Erro na recuperação');
     }
   }
 
