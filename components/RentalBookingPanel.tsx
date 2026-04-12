@@ -216,6 +216,28 @@ export function RentalBookingPanel({
   async function handleDelete() {
     if (!booking?.id) return;
 
+    const confirmAndDelete = async () => {
+      try {
+        setLoading(true);
+        await deleteRentalBooking(booking.id);
+        onSaved();
+        onClose();
+      } catch (error: any) {
+        Alert.alert(texts.genericError, error?.message ?? texts.deleteError);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const accepted = typeof window !== 'undefined'
+        ? window.confirm(`${texts.cancelBookingTitle}\n\n${texts.cancelBookingBody}`)
+        : false;
+      if (!accepted) return;
+      await confirmAndDelete();
+      return;
+    }
+
     Alert.alert(
       texts.cancelBookingTitle,
       texts.cancelBookingBody,
@@ -224,17 +246,8 @@ export function RentalBookingPanel({
         {
           text: texts.deleteConfirm,
           style: 'destructive',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              await deleteRentalBooking(booking.id);
-              onSaved();
-              onClose();
-            } catch (error: any) {
-              Alert.alert(texts.genericError, error?.message ?? texts.deleteError);
-            } finally {
-              setLoading(false);
-            }
+          onPress: () => {
+            confirmAndDelete();
           },
         },
       ],
