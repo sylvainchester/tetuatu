@@ -67,7 +67,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'À payer sur place',
     adultsChildren: (adults, children) => `Adultes : ${adults} | Enfants : ${children}`,
     managerSubtitle: 'Consultation des réservations.',
-    employeeSubtitle: 'Consultation des réservations pour employé.',
+    employeeSubtitle: 'Mode employé (lecture seule).',
   },
   en: {
     subtitle: 'House bookings',
@@ -85,7 +85,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'Due on arrival',
     adultsChildren: (adults, children) => `Adults: ${adults} | Children: ${children}`,
     managerSubtitle: 'Bookings in read-only mode.',
-    employeeSubtitle: 'Read-only bookings for employee.',
+    employeeSubtitle: 'Employee mode (read-only).',
   },
   pt: {
     subtitle: 'Reservas da casa',
@@ -103,7 +103,7 @@ const UI_TEXTS: Record<Locale, {
     cashOnArrival: 'A pagar na chegada',
     adultsChildren: (adults, children) => `Adultos: ${adults} | Criancas: ${children}`,
     managerSubtitle: 'Consulta das reservas.',
-    employeeSubtitle: 'Consulta das reservas para funcionario.',
+    employeeSubtitle: 'Modo funcionario (so leitura).',
   },
 };
 
@@ -337,7 +337,7 @@ export default function ReservationsScreen() {
   const activeLanguage = LOCALE_OPTIONS.find((option) => option.code === locale) || LOCALE_OPTIONS[0];
 
   async function handleTopRightAction() {
-    if (accessRole === 'manager') {
+    if (accessRole === 'manager' || accessRole === 'employee') {
       await supabase.auth.signOut({ scope: 'local' }).catch(() => {});
       router.replace('/');
       return;
@@ -470,7 +470,7 @@ export default function ReservationsScreen() {
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.hero}>
-        <View>
+        <View style={styles.heroTextWrap}>
           <Text style={styles.title}>Montegordo</Text>
           <Text style={styles.subtitle}>
             {accessRole === 'manager'
@@ -677,6 +677,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 14,
     color: '#6f5e46',
+  },
+  heroTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10,
   },
   backChip: {
     backgroundColor: '#fff7eb',
