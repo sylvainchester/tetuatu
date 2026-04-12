@@ -13,6 +13,11 @@ import { getPushApiBase } from '@/lib/pushApi';
 import { useWakeLock } from '@/lib/wakeLock';
 import { useGameStore } from '@/store/impostor/useGameStore';
 
+type BeforeInstallPromptEvent = Event & {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
+};
+
 export const unstable_settings = {
   anchor: 'index',
 };
@@ -23,6 +28,9 @@ export default function RootLayout() {
   const [updateReady, setUpdateReady] = useState(false);
   const [applyingUpdate, setApplyingUpdate] = useState(false);
   const [waitingWorker, setWaitingWorker] = useState<ServiceWorker | null>(null);
+  const [installPromptEvent, setInstallPromptEvent] = useState<BeforeInstallPromptEvent | null>(null);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [installDismissed, setInstallDismissed] = useState(false);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
   const swFingerprintRef = useRef<string | null>(null);
 
@@ -144,6 +152,48 @@ export default function RootLayout() {
   }, [setPushToken]);
 
   useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+    const detectStandalone = () => {
+      const inStandaloneDisplayMode = window.matchMedia('(display-mode: standalone)').matches;
+      const iosStandalone = Boolean((navigator as any).standalone);
+      setIsStandalone(inStandaloneDisplayMode || iosStandalone);
+    };
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      event.preventDefault();
+      setInstallPromptEvent(event as BeforeInstallPromptEvent);
+      setInstallDismissed(false);
+    };
+
+    const handleAppInstalled = () => {
+      setIsStandalone(true);
+      setInstallPromptEvent(null);
+      setInstallDismissed(true);
+    };
+
+    detectStandalone();
+    const displayModeMedia = window.matchMedia('(display-mode: standalone)');
+    if (typeof displayModeMedia.addEventListener === 'function') {
+      displayModeMedia.addEventListener('change', detectStandalone);
+    } else if (typeof (displayModeMedia as any).addListener === 'function') {
+      (displayModeMedia as any).addListener(detectStandalone);
+    }
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      if (typeof displayModeMedia.removeEventListener === 'function') {
+        displayModeMedia.removeEventListener('change', detectStandalone);
+      } else if (typeof (displayModeMedia as any).removeListener === 'function') {
+        (displayModeMedia as any).removeListener(detectStandalone);
+      }
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  useEffect(() => {
     const apiUrl = getPushApiBase();
     if (!apiUrl || !user || !pushToken) {
       return;
@@ -169,6 +219,26 @@ export default function RootLayout() {
     }
     window.location.reload();
   }
+
+  async function handleInstallApp() {
+    if (!installPromptEvent) return;
+    await installPromptEvent.prompt();
+    const choice = await installPromptEvent.userChoice.catch(() => null);
+    if (choice?.outcome === 'accepted') {
+      setInstallDismissed(true);
+      setInstallPromptEvent(null);
+    }
+  }
+
+  const showInstallBanner = Platform.OS === 'web' && !isStandalone && !installDismissed;
+  const isIOSWeb =
+    Platform.OS === 'web' &&
+    typeof navigator !== 'undefined' &&
+    /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const installHelpText =
+    isIOSWeb
+      ? 'Installez l’app: bouton Partager puis Ajouter à l’écran d’accueil.'
+      : 'Installez l’app: menu du navigateur puis Ajouter à l’écran d’accueil.';
 
   return (
     <ThemeProvider value={DefaultTheme}>
@@ -209,6 +279,24 @@ export default function RootLayout() {
           <Pressable style={[styles.updateButton, applyingUpdate && styles.updateButtonDisabled]} onPress={applyUpdate} disabled={applyingUpdate}>
             <Text style={styles.updateButtonText}>{applyingUpdate ? 'Mise à jour...' : 'Mettre à jour'}</Text>
           </Pressable>
+        </View>
+      ) : null}
+      {showInstallBanner ? (
+        <View style={[styles.installBanner, updateReady && styles.installBannerWithUpdate]}>
+          <View style={styles.installTextWrap}>
+            <Text style={styles.installTitle}>Installer Tetuatu</Text>
+            <Text style={styles.installText}>{installHelpText}</Text>
+          </View>
+          <View style={styles.installActions}>
+            {installPromptEvent ? (
+              <Pressable style={styles.installButton} onPress={handleInstallApp}>
+                <Text style={styles.installButtonText}>Installer</Text>
+              </Pressable>
+            ) : null}
+            <Pressable style={styles.installLaterButton} onPress={() => setInstallDismissed(true)}>
+              <Text style={styles.installLaterText}>Plus tard</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
       <Stack>
@@ -268,5 +356,58 @@ const styles = StyleSheet.create({
   updateButtonText: {
     color: '#052e16',
     fontWeight: '800'
+  },
+  installBanner: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    right: 8,
+    zIndex: 9998,
+    backgroundColor: '#fff7eb',
+    borderColor: '#d5c3a1',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 10
+  },
+  installBannerWithUpdate: {
+    top: 72
+  },
+  installTextWrap: {
+    gap: 2
+  },
+  installTitle: {
+    color: '#3b2f1d',
+    fontWeight: '800'
+  },
+  installText: {
+    color: '#6f5e46'
+  },
+  installActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8
+  },
+  installButton: {
+    backgroundColor: '#171717',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  installButtonText: {
+    color: '#fff5e6',
+    fontWeight: '800'
+  },
+  installLaterButton: {
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#d5c3a1',
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  installLaterText: {
+    color: '#3b2f1d',
+    fontWeight: '700'
   }
 });
